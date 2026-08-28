@@ -9,11 +9,15 @@ Dokumen ini ditulis dengan bahasa yang cukup sederhana. cukup ikuti langkahnya.
 
 ## 📌 Isi dokumen ini
 
-- [Apa yang harus kamu siapkan?](#apa-yang-harus-kamu-siapkan)
-- [Kasus umum penggunaan](#kasus-umum-penggunaan)
-- [Pilih sistem operasi kamu](#pilih-sistem-operasi-kamu)
-- [Ringkasan langkah](#ringkasan-langkah)
-- [Gambaran singkat istilah](#gambaran-singkat-istilah)
+- [Setup Multiple Apikey Opencode: MCP, LSP](#setup-multiple-apikey-opencode-mcp-lsp)
+  - [📌 Isi dokumen ini](#-isi-dokumen-ini)
+  - [Apa yang harus kamu siapkan?](#apa-yang-harus-kamu-siapkan)
+  - [Kasus umum penggunaan](#kasus-umum-penggunaan)
+  - [Pilih sistem operasi kamu](#pilih-sistem-operasi-kamu)
+    - [🪟 Windows](#-windows)
+    - [🍎 macOS](#-macos)
+  - [Ringkasan langkah](#ringkasan-langkah)
+  - [Gambaran singkat istilah](#gambaran-singkat-istilah)
 
 ---
 
@@ -26,7 +30,7 @@ Kamu menyiapkan **Opencode Agent CLI** agar bisa bekerja maksimal di komputermu 
 | **Model gratis** | **Big Pickle (Opencode Zen)** - model resmi opencode, gratis (tetap butuh API key Zen) | langsung bisa dipakai setelah login OpenCode Zen |
 | **LSP** | "Pemeriksa" bahasa program - seperti *spell checker* di Word, tapi untuk kode | agent otomatis tahu kalau ada error/warning di file yang kamu buka |
 | **MCP** | "Tools tambahan" - memberi agent kemampuan baru (buka browser, akses GitHub, query database) | agent bisa menjalankan perintah dan mengakses data eksternal |
-| **API Key** | "Kartu akses" untuk layanan AI berbayar (Claude, OpenAI, Gemini, dsb) - hanya opsional | agent bisa memakai beberapa provider AI sekaligus |
+| **API Key** | "Kartu akses" untuk layanan AI (Claude, OpenAI, Gemini, dsb) - hanya opsional | agent bisa memakai beberapa provider AI sekaligus |
 
 Tidak perlu paham semua sekarang - ikuti panduan per sistem operasi, dan semuanya akan terpasang.
 
