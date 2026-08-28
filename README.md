@@ -46,9 +46,12 @@ Opencode Agent bukan hanya untuk menulis kode. Berkat **MCP** (tools tambahan), 
 | 🐙 **Bekerja dengan GitHub** | "Lihat daftar issue di repo ini, atau buat ringkasan pull request terakhir." |
 | 🌍 **Menerjemahkan / meringkas** | "Ringkas dokumen ini dalam 3 kalimat, lalu terjemahkan ke bahasa Inggris." |
 | 🧠 **Mengingat hal penting** | "Catat keputusan design hari ini supaya diingat untuk sesi berikutnya." |
+| 🎨 **Design & edit foto** | "Tolong buat desain thumbnail untuk video saya, dan bantu edit foto dengan tools yang tersedia." |
+| 🎬 **Edit video** | "Potong bagian intro video ini, tambahkan caption, lalu ekspor klipnya dalam format yang bisa dipakai." |
+| 🎵 **Edit musik / produksi musik** | "Tolong bantu atur level suara, potong bagian lagu ini, dan kasih saran mixing yang sederhana." |
 | 🛠️ **Membantu pekerjaan biasa** | "Jalankan perintah ini di terminal, lalu jelaskan hasilnya padaku dengan bahasa sederhana." |
 
-> Intinya: agent bisa membantu apa pun yang umumnya kamu kerjakan sendiri di komputer - selama itu bisa dijelaskan lewat kata-kata.
+> Intinya: agent bisa membantu apa pun yang umumnya kamu kerjakan sendiri di komputer - selama itu bisa dijelaskan lewat kata-kata dan tools-nya terpasang (misal aplikasi design, editor video, atau DAW untuk musik).
 
 ---
 
