@@ -144,11 +144,21 @@ npx playwright install chromium
 
 ## 3. Mengatur API Key (Provider AI)
 
-**Langsung bisa dipakai tanpa API key** - secara bawaan opencode memakai model gratis **Big Pickle (Opencode Zen)**. Tidak perlu set token apa pun untuk mulai mencoba.
+Model gratis **Big Pickle (Opencode Zen)** tetap butuh API key - tapi gratis. Login ke provider **OpenCode Zen**, lalu daftarkan key-nya ke opencode.
 
-API key baru dibutuhkan **hanya jika** kamu ingin menambah provider berbayar (Anthropic, OpenAI, Google, dsb.). Section ini opsional - lewati jika cukup pakai model gratis.
+### 3.1 Login OpenCode Zen (gratis) - untuk mulai memakai
 
-### 3.1 Opsional - login lewat perintah
+Buka <https://opencode.ai/zen>, login, dan salin API key-nya. Lalu daftarkan ke opencode:
+
+```bash
+opencode auth login
+```
+
+Pilih **OpenCode Zen** di daftar provider, lalu tempel API key yang sudah kamu salin.
+
+API key provider berbayar (Anthropic, OpenAI, Google, dsb.) baru dibutuhkan **hanya jika** kamu ingin menambah provider lain selain yang gratis. Section berikut opsional.
+
+### 3.2 Opsional - login lewat perintah untuk provider lain
 
 ```bash
 opencode auth login
@@ -156,7 +166,7 @@ opencode auth login
 
 Ikuti petunjuk di layar untuk tiap provider yang kamu pakai. Token disimpan di **Windows Credential Manager** - aman, tidak terlihat di file apa pun.
 
-### 3.2 Atau lewat environment variable (cara Git Bash)
+### 3.3 Atau lewat environment variable (cara Git Bash)
 
 Set token sebagai environment variable dengan syntax **Git Bash** (sama seperti di macOS):
 

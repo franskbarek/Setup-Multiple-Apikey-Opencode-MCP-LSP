@@ -23,7 +23,7 @@ Kamu menyiapkan **Opencode Agent CLI** agar bisa bekerja maksimal di komputermu 
 
 | Hal | Apa itu (versi sederhana) | Gimana rasanya di Opencode Agent |
 |---|---|---|
-| **Model gratis** | **Big Pickle (Opencode Zen)** - model bawaan opencode, gratis, tanpa API key | langsung bisa dipakai begitu terpasang |
+| **Model gratis** | **Big Pickle (Opencode Zen)** - model resmi opencode, gratis (tetap butuh API key Zen) | langsung bisa dipakai setelah login OpenCode Zen |
 | **LSP** | "Pemeriksa" bahasa program - seperti *spell checker* di Word, tapi untuk kode | agent otomatis tahu kalau ada error/warning di file yang kamu buka |
 | **MCP** | "Tools tambahan" - memberi agent kemampuan baru (buka browser, akses GitHub, query database) | agent bisa menjalankan perintah dan mengakses data eksternal |
 | **API Key** | "Kartu akses" untuk layanan AI berbayar (Claude, OpenAI, Gemini, dsb) - hanya opsional | agent bisa memakai beberapa provider AI sekaligus |
@@ -77,8 +77,8 @@ Berisi: install tools, set API key, set token GitHub, buat file konfigurasi, ver
 Baik Windows maupun Mac, alurnya sama:
 
 1. **Install tools** - seperti memasang perkakas yang dibutuhkan (Node.js, Git, dll.).
-2. **Mulai pakai** - model gratis **Big Pickle (Opencode Zen)** langsung aktif tanpa API key.
-3. **Set API key** - *opsional*, hanya jika ingin menambah provider berbayar.
+2. **Login OpenCode Zen** - daftarkan API key model gratis **Big Pickle (Opencode Zen)**.
+3. **Set API key lain** - *opsional*, hanya jika ingin menambah provider berbayar.
 4. **Set GitHub token** - *opsional*, hanya jika ingin akses GitHub dari agent.
 5. **Salin file konfigurasi** - satu file `opencode.json` yang mengaktifkan semua fitur.
 6. **Restart opencode** - agar konfigurasi terbaca.
