@@ -14,6 +14,7 @@ Dokumen ini ditulis dengan bahasa yang cukup sederhana. cukup ikuti langkahnya.
   - [Apa yang harus kamu siapkan?](#apa-yang-harus-kamu-siapkan)
   - [Kasus umum penggunaan](#kasus-umum-penggunaan)
   - [MCP untuk media (opsional)](#mcp-untuk-media-opsional)
+  - [🔁 Failover multi API key (OpenCode Zen)](#failover-multi-api-key-opencode-zen)
   - [Pilih sistem operasi kamu](#pilih-sistem-operasi-kamu)
     - [🪟 Windows](#-windows)
     - [🍎 macOS](#-macos)
@@ -74,6 +75,97 @@ Design foto, edit video, dan produksi musik di tabel atas **butuh MCP media tamb
 | **`artificer`** | Generate/Edit gambar (Gemini/Imagen), video (Veo), musik (Lyria 3), edit gambar (ImageMagick) | FFmpeg + ImageMagick + API key Gemini |
 
 > Untuk detail cara install & tabel perbandingan lengkapnya, lihat **"Bagian 5"** di panduan sistem operasi kamu.
+
+---
+
+## 🔁 Failover multi API key (OpenCode Zen)
+
+Punya **lebih dari satu API key** untuk layanan yang sama? Contohnya beberapa akun **OpenCode Zen** - setiap akun dapat model gratis **Big Pickle** dengan kuota sendiri. Kalau kuota satu key habis, opencode biasa hanya akan terus mencoba dan mentok di error. Bagian ini menjelaskan konsep yang disiapkan agar key **pindah otomatis** tanpa mengubah model.
+
+### Kenapa bukan plugin fallback?
+
+Plugin seperti `@razroo/opencode-model-fallback` juara untuk **pindah model** di tengah sesi (misal Big Pickle → Claude). Tapi untuk kasus **banyak key pada provider yang sama**, plugin kalah karena:
+
+- key model `opencode/*` terbaca dari `auth.json`, **bukan** dari environment variable - plugin/wrapper tidak bisa sekadar mengganti key
+- supaya key bisa dibedakan, tiap key harus dibuatkan "custom provider" sendiri di config
+- deteksinya lewat error SDK, bukan status HTTP asli dari server
+
+Untuk kasusmu, solusi yang tepat bukan plugin, melainkan **key-pool proxy** di bawah.
+
+### Konsep: key-pool proxy lokal
+
+```
+opencode (TUI / opencode run / MCP / curl)
+        │  baseURL → http://127.0.0.1:8765/v1
+        ▼
+   [ keys-pool-server ]       ← skrip Node lokal (rencana)
+        │  •  baca file keys.env (satu key per baris, atas = prioritas)
+        │  •  pilih key yang tidak sedang pending, teruskan ke upstream
+        │  •  lihat respons asli: 429/402 kuota → pending key itu,
+        │     coba key berikutnya; 4xx non-kuota → diteruskan apa adanya
+        │  •  semua key pending → balas 429 + pesan jelas ke opencode
+        ▼
+   https://opencode.ai/zen/v1
+```
+
+> ⚠️ **Status: konsep + spesifikasi.** Skrip `keys-pool-server.js` **belum dibuat** - ini rencana yang siap diimplementasikan (lihat Roadmap di bawah).
+
+### Perbandingan pendekatan
+
+| Pendekatan | Rotasi di tengah sesi TUI | Rotasi key (bukan model) | Deteksi error | Persisten antar restart | Berlaku untuk command lain |
+|---|---|---|---|---|---|
+| Wrapper `run-with-failover.sh` (saat ini) | ❌ per-eksekusi | ✅ baca daftar key | ⚠️ tebak lewat teks | ❌ | ✅ curl, MCP, npm |
+| Plugin `@razroo/opencode-model-fallback` | ✅ | ⚠️ butuh custom provider per key | ⚠️ lewat SDK | ❌ | ❌ hanya model opencode |
+| **Key-pool proxy** (rencana) | ✅ | ✅ di level HTTP | ✅ status 429/402 asli | ✅ file `cooldowns.json` | ✅ semua |
+| Tool existing (`oswap`, `opencode-go-multi-auth`) | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+### Spesifikasi desain `keys-pool-server.js` (rencana)
+
+- **Tempat**: folder `opencode-failover` (di samping `run-with-failover.sh`), Node.js tanpa dependency
+- **Port**: `127.0.0.1:8765`, hanya bind ke localhost (tidak terbuka ke jaringan)
+- **Masukan**: `keys.env` - satu key per baris, baris atas = prioritas
+- **State**: `cooldowns.json` - durasi pending bertahan walau komputer di-restart
+- **Rotasi**: respons `429` / `402` dengan body kuota → pending key itu (pakai `Retry-After` jika ada), lanjut ke key berikutnya; 4xx non-kuota diteruskan apa adanya
+- **Kapasitas habis semua**: balas `429` ke opencode dengan pesan yang mudah dibaca
+- **Endpoint**: `/health` (proxy hidup?) dan `/status` (keadaan tiap key)
+- **Streaming**: SSE `chat/completions` diteruskan byte-by-byte agar token tetap muncul langsung
+- **Opsi CLI**: `--port`, `--keys-file`, `--dry-run`, `--reset-cooldowns`
+
+### Konfigurasi opencode
+
+Tambah **satu** custom provider (bukan satu per key):
+
+```json
+"providers": {
+  "zen-proxy": {
+    "npm": "@ai-sdk/openai-compatible",
+    "options": {
+      "baseURL": "http://127.0.0.1:8765/v1",
+      "apiKey": "sk-proxy-dummy"
+    },
+    "models": { "big-pickle": { "name": "Big Pickle (via key-pool proxy)" } }
+  }
+}
+```
+
+lalu ganti `"model"` menjadi `"zen-proxy/big-pickle"`. Key asli tidak pernah masuk config - proxy yang menyuntikkan key dari `keys.env`.
+
+### Kapan pakai yang mana
+
+| Kebutuhan kamu | Pilih |
+|---|---|
+| Sering `opencode run` sekali jalan / command lain (curl, MCP, npm) | Wrapper `run-with-failover.sh` |
+| Mau rotasi otomatis di TUI dengan beberapa key Zen | **Key-pool proxy** ini |
+| Mau pindah ke model lain saat limit (misal Big Pickle → Claude) | Plugin `@razroo/opencode-model-fallback` |
+| Tidak mau bikin/bedah sendiri | Tool existing (`oswap`, `opencode-go-multi-auth`) |
+
+### Roadmap implementasi (fase berikutnya)
+
+1. Tulis `keys-pool-server.js` (Node, tanpa dependency)
+2. Uji: `node keys-pool-server.js --dry-run` lalu `curl http://127.0.0.1:8765/status`
+3. Isi `keys.env` dengan beberapa key Zen
+4. Pasang custom provider `zen-proxy` di `opencode.json` (snippet di atas)
+5. Verifikasi: cek `/status`, jalankan opencode, lalu geser kuota salah satu key untuk melihat perpindahan
 
 ---
 

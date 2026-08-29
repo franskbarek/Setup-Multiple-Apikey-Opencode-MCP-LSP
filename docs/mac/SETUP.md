@@ -427,6 +427,55 @@ Semua server di tabel ini bekerja di **agent apa pun** (Opencode, Claude, Cursor
 
 > **Setelah menyimpan file ini, WAJIB quit & restart opencode** - konfigurasi hanya dibaca saat opencode dijalankan. Saat menyalakan server media, pastikan juga FFmpeg sudah terinstall (`ffmpeg -version`).
 
+### 🔁 Failover multi API key Zen (opsional)
+
+**Masalah:** kamu punya beberapa API key OpenCode Zen (model gratis **Big Pickle** punya kuota sendiri per akun). Saat kuota satu key habis, opencode hanya mentok - tidak pindah sendiri.
+
+**Konsep:** arahkan opencode ke **proxy lokal** yang memegang daftar key (file `keys.env`) lalu meneruskan ke `https://opencode.ai/zen/v1`. Saat upstream membalas `429`/`402` kuota, proxy menandai key itu *pending* dan memakai key berikutnya - berlaku untuk TUI, `opencode run`, MCP, dan curl sekaligus.
+
+> ⚠️ **Status: rencana.** Skrip `keys-pool-server.js` **belum dibuat**. Bagian ini menyiapkan konsep & konfigurasinya. Penjelasan lengkap + perbandingan ada di bagian "🔁 Failover multi API key (OpenCode Zen)" di [README utama](../../..#failover-multi-api-key-opencode-zen).
+
+**Rencana isi `keys-pool-server.js`** (Node, tanpa dependency, taruh di samping `run-with-failover.sh`):
+
+| Aspek | Rencana |
+|---|---|
+| Alamat | `127.0.0.1:8765` saja - tidak terbuka ke jaringan |
+| Key | baca `keys.env` di folder sama (satu per baris, atas = prioritas) |
+| State | `cooldowns.json` - pending bertahan antar restart |
+| Deteksi | respons HTTP **asli** dari upstream: `429`/`402` kuota → pending key itu (pakai `Retry-After`), coba key berikutnya; 4xx non-kuota → diteruskan apa adanya |
+| Semua key pending | balas `429` + pesan jelas ke opencode |
+| Endpoint | `/health` dan `/status` |
+| Streaming | SSE `chat/completions` diteruskan byte-by-byte |
+| Opsi CLI | `--port`, `--keys-file`, `--dry-run`, `--reset-cooldowns` |
+
+**Konfigurasi opencode** (tambahkan satu provider saja, bukan satu per key):
+
+```json
+"providers": {
+  "zen-proxy": {
+    "npm": "@ai-sdk/openai-compatible",
+    "options": {
+      "baseURL": "http://127.0.0.1:8765/v1",
+      "apiKey": "sk-proxy-dummy"
+    },
+    "models": { "big-pickle": { "name": "Big Pickle (via key-pool proxy)" } }
+  }
+}
+```
+
+lalu ubah `"model"` menjadi `"zen-proxy/big-pickle"`. Key asli tidak pernah masuk config - proxy menyuntikkan key dari `keys.env`.
+
+**Cara memakai (setelah skrip jadi):**
+
+```bash
+cd opencode-failover
+node keys-pool-server.js            # jalankan di jendela Terminal terpisah
+curl http://127.0.0.1:8765/status   # cek keadaan tiap key & cooldown
+opencode                            # mulai seperti biasa
+```
+
+**Alternatif tanpa bikin sendiri:** `@razroo/opencode-model-fallback` (rotasi model) atau `opencode-go-multi-auth`/`oswap` (proxy siap pakai) - bandingkan di README.
+
 <p align="right"><a href="#top">⬆ Kembali ke atas</a></p>
 
 ---
@@ -480,6 +529,7 @@ echo $ANTHROPIC_API_KEY
 | GitHub MCP gagal | Pastikan `GITHUB_PERSONAL_ACCESS_TOKEN` terisi, token valid, dan `oauth` di config bernilai `false` |
 | Playwright error | Jalankan `npx playwright install chromium` |
 | MCP media (`video`/`artificer`) tidak aktif | Servenya `enabled: false` secara default - ubah jadi `true` lalu restart. Pastikan `ffmpeg -version` jalan; untuk `artificer` juga butuh `magick -version` dan `GEMINI_API_KEY` terisi |
+| Failover `zen-proxy` tidak jalan | Pastikan `node keys-pool-server.js` sedang berjalan (`curl http://127.0.0.1:8765/status`), `keys.env` terisi, dan `"model"` memakai `zen-proxy/big-pickle`. Reset pending: `node keys-pool-server.js --reset-cooldowns` |
 | opencode tidak mau start / config error | Jalankan opencode dengan `OPENCODE_DISABLE_PROJECT_CONFIG=1`, perbaiki config, lalu restart |
 
 <p align="right"><a href="#top">⬆ Kembali ke atas</a></p>
