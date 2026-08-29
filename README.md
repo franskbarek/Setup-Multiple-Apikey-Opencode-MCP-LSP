@@ -35,6 +35,8 @@ Kamu menyiapkan **Opencode Agent CLI** agar bisa bekerja maksimal di komputermu 
 
 Tidak perlu paham semua sekarang - ikuti panduan per sistem operasi, dan semuanya akan terpasang.
 
+> 💡 **Mau coba MCP sesederhana mungkin?** Gunakan **`context7`** (cari dokumentasi library) - server-nya berjalan di **cloud**, jadi **tidak perlu install apa pun** dan tidak butuh API key sendiri. Cukup tempel konfigurasinya di `opencode.json` lalu **restart** - langsung aktif.
+
 ---
 
 ## Kasus umum penggunaan

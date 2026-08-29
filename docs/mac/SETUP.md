@@ -359,6 +359,27 @@ Jika folder `.config` belum ada, buat dulu. Lalu isi file tersebut dengan:
 
 > **Catatan MCP media:** dua server di atas (`video` & `artificer`) **mati secara default** (`"enabled": false`) karena butuh tools & API key tambahan. Nyalakan hanya jika dibutuhkan (ubah jadi `true` lalu restart). Rinciannya di bawah.
 
+### context7 - MCP paling gampang
+
+Mau merasakan MCP bekerja tanpa ribet? Pakai **`context7`** - sudah `"enabled": true` di config di atas.
+
+Kenapa paling gampang:
+
+- **Tipe remote** - server-nya berjalan di cloud (`https://mcp.context7.com/mcp`), bukan proses lokal di komputermu
+- **Tanpa install** - tidak perlu `npx`/`uv`/`pip`, tidak perlu tools tambahan, tidak butuh API key
+- **Cukup tempel config + restart** - langsung aktif saat opencode pertama dijalankan
+
+Perbandingan singkat dengan MCP lain di config:
+
+| Server MCP | Type | Perlu install | Butuh tambahan |
+|---|---|---|---|
+| **context7** ⭐ | remote | tidak ada | tidak ada (gratis) |
+| github | remote | tidak ada | GitHub token |
+| filesystem, memory | local | npx (dibuat otomatis) | tidak ada |
+| playwright | local | npx | `npx playwright install chromium` |
+| video, artificer | local | paket Python/Node | FFmpeg, ImageMagick, API key Gemini |
+| postgres, sqlite | local | paket | server database |
+
 ### Perbandingan MCP server media
 
 Semua server di tabel ini bekerja di **agent apa pun** (Opencode, Claude, Cursor, dsb.) karena MCP adalah protokol standar. Tidak semua disarankan untuk dipasang - pilih sesuai kebutuhan.
