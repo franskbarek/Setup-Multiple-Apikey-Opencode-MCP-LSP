@@ -254,6 +254,35 @@ Dasar-dasar yang perlu kamu kenal dulu:
 
 Untuk failover, kamu butuh **Node.js ≥ 20** dan **opencode (CLI)**. Tidak perlu paham semua sekarang - ikuti panduan per sistem operasi di bawah.
 
+### Memahami isi file config `opencode.json`
+
+Satu-satunya file yang benar-benar perlu kamu pahami. Contoh isinya (lengkap) ada di **Bagian 5** panduan sistem operasi kamu. Ini arti tiap kuncinya:
+
+| Kunci | Apa artinya |
+|---|---|
+| `"$schema"` | Alamat skema JSON. Fungsinya biar editor bisa kasih saran & peringatan saat kamu menulis file. Opsional. |
+| `"model"` | Model bawaan yang dipakai opencode. Formatnya `providerId/modelId` - jadi `zen-proxy/big-pickle` = provider `zen-proxy`, model `big-pickle`. |
+| `"small_model"` | Model ringan untuk tugas kecil (membuat judul / ringkasan singkat). Kalau tidak diisi, opencode memakai `"model"`. Di setup ini disamakan dengan `"model"` agar semua tetap lewat proxy. |
+| `"provider"` | Tempat mendefinisikan **custom provider**. Tiap key di dalamnya = satu provider (di sini `zen-proxy`). |
+| `"provider"."zen-proxy"."npm"` | "Driver" SDK yang dipakai opencode untuk bicara ke provider ini. `@ai-sdk/openai-compatible` = driver untuk API bergaya OpenAI - dan proxy kita memang berbicara protokol itu. |
+| `"provider"."zen-proxy"."options"."baseURL"` | Alamat tujuan. Di sini bukan server asli, melainkan **proxy lokal kita** (`http://127.0.0.1:8765/v1`). |
+| `"provider"."zen-proxy"."options"."apiKey"` | Key untuk provider ini. Diisi **dummy** (`sk-proxy-dummy`) karena key asli disuntikkan proxy dari `keys.env` - key asli tidak pernah ada di file ini. |
+| `"provider"."zen-proxy"."models"` | Daftar model yang tersedia lewat provider ini. |
+| `...models"."big-pickle"` | ID model (bagian setelah `/` di `zen-proxy/big-pickle`). |
+| `...models"."big-pickle"."name"` | Label tampilan model di UI opencode (jadi tampil "Big Pickle (via key-pool proxy)"). **Opsional** - tanpa ini opencode tetap jalan, hanya menampilkan ID mentah. |
+| `"mcp"` | Daftar server MCP. Tiap key = satu server. |
+| `"mcp"."<server>"."type"` | `"remote"` = server jalan di cloud (pakai `url`); `"local"` = proses di komputermu sendiri (pakai `command`). |
+| `"mcp"."<server>"."url"` | Alamat server remote (dipakai kalau `type: remote`). |
+| `"mcp"."<server>"."command"` | Perintah untuk menjalankan server lokal (dipakai kalau `type: local`). |
+| `"mcp"."<server>"."enabled"` | Hidup/mati server MCP. `true` = aktif, `false` = mati tanpa harus menghapus entri dari file. |
+| `"mcp"."<server>"."environment"` | Variabel lingkungan tambahan yang diberikan ke proses server lokal (contoh `postgres`). |
+| `"lsp"` | Daftar server LSP (opsional, Bagian 6). Tiap key menghubungkan ekstensi file → tool pemeriksa. |
+| `"lsp"."<bahasa>"."command"` | Perintah tool LSP (contoh `gopls`). |
+| `"lsp"."<bahasa>"."extensions"` | Ekstensi file yang memicu tool tersebut. |
+| `"lsp"."<bahasa>"."disabled"` | Berbeda dengan MCP: LSP memakai `"disabled"`, bukan `"enabled"`. `false` = aktif, `true` = mati. |
+
+> Secara umum, opencode bisa membaca **lebih dari satu file config** (global, per project, dsb.) dan hasilnya **digabung** - bukan digantikan. Kunci yang sama di file berprioritas lebih tinggi yang menang. Setup ini cukup memakai file global `~/.config/opencode/opencode.json` saja.
+
 ---
 
 ## Pilih sistem operasi kamu

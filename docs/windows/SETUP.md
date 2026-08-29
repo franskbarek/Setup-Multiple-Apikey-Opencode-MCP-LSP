@@ -405,6 +405,8 @@ Jika folder/`.config` belum ada, buat dulu. File ini adalah file yang sama denga
 }
 ```
 
+> 🔎 **Penjelasan tiap kunci config** (`model`, `small_model`, `provider`, `mcp`, `lsp`, dsb.) ada di [README - Memahami isi file config opencode.json](../../..#memahami-isi-file-config-opencodejson).
+
 > **Catatan `enabled`:** setiap MCP server punya flag `"enabled": true/false` - ganti nilainya untuk mengaktifkan/menonaktifkan server tertentu tanpa harus menghapusnya dari file. Contoh: `postgres` dan `sqlite` sengaja `false` karena butuh database; jika suatu saat mau dipakai, cukup ubah jadi `true`.
 
 > **Catatan MCP media:** dua server di atas (`video` & `artificer`) **mati secara default** (`"enabled": false`) karena butuh tools & API key tambahan. Nyalakan hanya jika dibutuhkan (ubah jadi `true` lalu restart). Rinciannya di bawah.
