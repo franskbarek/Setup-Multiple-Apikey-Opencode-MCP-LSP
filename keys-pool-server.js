@@ -2,7 +2,6 @@
 /**
  * keys-pool-server.js
  * Proxy key-pool untuk OpenCode Zen - rotasi otomatis beberapa API key.
- * Menggantikan setup wrapper sebelumnya (run-with-failover.sh).
  *
  * Cara pakai:
  *   node keys-pool-server.js                # jalankan proxy di 127.0.0.1:8765

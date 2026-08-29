@@ -160,7 +160,7 @@ opencode (TUI / opencode run / MCP / curl)
 
 Karena logika ini ada di level HTTP, satu konsep ini langsung berlaku untuk **TUI, `opencode run`, MCP, dan curl** sekaligus - tanpa menyentuh model yang dipakai.
 
-> ✅ **Status: sudah saya implementasikan.** Skrip `keys-pool-server.js` sudah jadi dan ada di repo ini - ikuti langkah instalasi di bawah (dan Bagian 5 di panduan sistem operasi kamu). Setup ini **menggantikan** cara sebelumnya (`run-with-failover.sh`).
+> ✅ **Status: sudah saya implementasikan.** Skrip `keys-pool-server.js` sudah jadi dan ada di repo ini - ikuti langkah instalasi di bawah (dan Bagian 5 di panduan sistem operasi kamu).
 
 ### Perbandingan pendekatan (yang saya pertimbangkan)
 
@@ -168,7 +168,6 @@ Supaya keputusan di atas jelas, ini catatan perbandingan saya:
 
 | Pendekatan | Rotasi di tengah sesi TUI | Rotasi key (bukan model) | Deteksi error | Persisten antar restart | Berlaku untuk command lain |
 |---|---|---|---|---|---|
-| Wrapper `run-with-failover.sh` (setup lama, sudah diganti) | ❌ per-eksekusi | ✅ baca daftar key | ⚠️ tebak lewat teks | ❌ | ✅ curl, MCP, npm |
 | Plugin `@razroo/opencode-model-fallback` | ✅ | ⚠️ butuh custom provider per key | ⚠️ lewat SDK | ❌ | ❌ hanya model opencode |
 | **Key-pool proxy** (pilihan saya) | ✅ | ✅ di level HTTP | ✅ status 429/402 asli | ✅ file `cooldowns.json` | ✅ semua |
 | Tool existing (`oswap`, `opencode-go-multi-auth`) | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -211,8 +210,6 @@ Lalu ganti `"model"` menjadi `"zen-proxy/big-pickle"`. Key asli **tidak pernah m
 | Beberapa API key untuk layanan yang sama (TUI, `opencode run`, MCP, curl) | **Key-pool proxy** - ini setup yang saya pakai sekarang |
 | Mau pindah ke model lain saat limit (misal Big Pickle → Claude) | Plugin `@razroo/opencode-model-fallback` |
 | Ingin proxy siap pakai dari komunitas | `oswap`, `opencode-go-multi-auth` |
-
-> Setup sebelumnya (`run-with-failover.sh` + satu custom provider per key) sudah saya gantikan dengan key-pool proxy ini.
 
 ### Setup langkah demi langkah (sudah berjalan)
 

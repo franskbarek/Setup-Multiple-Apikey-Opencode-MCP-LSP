@@ -452,7 +452,7 @@ Semua server di tabel ini bekerja di **agent apa pun** (Opencode, Claude, Cursor
 
 **Penjelasan singkat:** satu key sehat → request diteruskan langsung (termasuk token streaming). Kuota key habis (`429`/`402`) → key itu menunggu dulu, proxy otomatis pakai key berikutnya. Semua key menunggu → proxy bilang ke opencode *"semua key sedang cooldown"*. Setelah jeda habis, key aktif lagi; state disimpan di `cooldowns.json` jadi awet walau komputer di-restart.
 
-> ✅ **Status: sudah saya implementasikan.** Skrip `keys-pool-server.js` tersedia di [repo utama](../../keys-pool-server.js) - salin ke folder `opencode-failover`, isi `keys.env`, lalu jalankan. Setup ini **menggantikan** cara lama (`run-with-failover.sh`). Penjelasan lengkap + perbandingan ada di bagian "🔁 Failover multi API key (OpenCode Zen)" di [README utama](../../..#failover-multi-api-key-opencode-zen).
+> ✅ **Status: sudah saya implementasikan.** Skrip `keys-pool-server.js` tersedia di [repo utama](../../keys-pool-server.js) - salin ke folder `opencode-failover`, isi `keys.env`, lalu jalankan. Penjelasan lengkap + perbandingan ada di bagian "🔁 Failover multi API key (OpenCode Zen)" di [README utama](../../..#failover-multi-api-key-opencode-zen).
 
 **Isi `keys-pool-server.js`** (Node, tanpa dependency, berjalan dari folder `opencode-failover`):
 
