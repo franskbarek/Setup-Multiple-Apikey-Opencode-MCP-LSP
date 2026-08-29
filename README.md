@@ -15,10 +15,10 @@ Dokumen ini ditulis dengan bahasa sederhana. Cukup ikuti langkahnya.
 
 ## 📌 Isi dokumen ini
 
-- [🔁 1. Failover multi API Key (prioritas)](#-1-failover-multi-api-key-prioritas)
-- [🧩 2. MCP (tools tambahan)](#-2-mcp-tools-tambahan)
-- [🪶 3. LSP (opsional - tetap ada caranya)](#-3-lsp-opsional---tetap-ada-caranya)
-- [🧰 4. Yang harus disiapkan (dasar)](#-4-yang-harus-disiapkan-dasar)
+- [1. Failover multi API Key (prioritas)](#-1-failover-multi-api-key-prioritas)
+- [2. MCP (tools tambahan)](#-2-mcp-tools-tambahan)
+- [3. LSP (opsional - tetap ada caranya)](#-3-lsp-opsional---tetap-ada-caranya)
+- [4. Yang harus disiapkan (dasar)](#-4-yang-harus-disiapkan-dasar)
 - [Pilih sistem operasi kamu](#pilih-sistem-operasi-kamu)
 - [Ringkasan langkah](#ringkasan-langkah)
 - [Gambaran singkat istilah](#gambaran-singkat-istilah)
@@ -31,7 +31,7 @@ Di setup ini saya memakai **lebih dari satu API key untuk layanan yang sama** - 
 
 ### Kenapa saya tidak sekadar pakai plugin fallback?
 
-Beberapa teman sempat menyarankan plugin fallback (contoh `@razroo/opencode-model-fallback`) yang pindah ke model lain saat limit. Plugin itu memang juara kalau tujuannya **pindah model** di tengah sesi (misal Big Pickle → Claude). Tapi untuk kasus **banyak key pada provider yang sama**, saya menilai plugin kurang pas:
+Banyak orang menyarankan plugin fallback (contoh `@razroo/opencode-model-fallback`) yang pindah ke model lain saat limit. Plugin itu memang juara kalau tujuannya **pindah model** di tengah sesi (misal Big Pickle → Claude). Tapi untuk kasus **banyak key pada provider yang sama**, saya pribadi menilai plugin seperti ini kurang sesuai:
 
 - key model `opencode/*` terbaca dari `auth.json`, **bukan** dari environment variable - jadi plugin/wrapper tidak bisa sekadar mengganti key
 - supaya key bisa dibedakan, tiap key harus dibuatkan "custom provider" sendiri di config
