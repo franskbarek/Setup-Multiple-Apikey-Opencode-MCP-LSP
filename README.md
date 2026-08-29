@@ -1,11 +1,11 @@
 <a id="top"></a>
-# Failover Multi API key + MCP untuk Opencode (LSP opsional)
+# Failover Multi API Key + MCP untuk Opencode (LSP opsional)
 
 Project ini berfokus pada **dua hal utama** dan satu hal opsional:
 
 | Prioritas | Bagian | Wajib? |
 |---|---|---|
-| 🔁 1 | **Failover multi API key** - konsep inti project ini. Saat kuota satu key habis, otomatis berganti ke key berikutnya tanpa pindah model. | **Paling wajib** |
+| 🔁 1 | **Failover multi API Key** - konsep inti project ini. Saat kuota satu key habis, otomatis berganti ke key berikutnya tanpa pindah model. | **Paling wajib** |
 | 🧩 2 | **MCP** - tools tambahan untuk agent (browser, GitHub, database, media, dsb.). | Utama |
 | 🪶 3 | **LSP** - pemeriksa bahasa. Caranya tetap saya tunjukkan, tapi tidak wajib. | Opsional |
 
@@ -15,8 +15,8 @@ Dokumen ini ditulis dengan bahasa sederhana. Cukup ikuti langkahnya.
 
 ## 📌 Isi dokumen ini
 
-- [🔁 1. Failover multi API key (prioritas)](#-1-failover-multi-api-key-prioritas)
-- [🧩 2. MCP (tools tambahan - utama)](#-2-mcp-tools-tambahan---utama)
+- [🔁 1. Failover multi API Key (prioritas)](#-1-failover-multi-api-key-prioritas)
+- [🧩 2. MCP (tools tambahan)](#-2-mcp-tools-tambahan)
 - [🪶 3. LSP (opsional - tetap ada caranya)](#-3-lsp-opsional---tetap-ada-caranya)
 - [🧰 4. Yang harus disiapkan (dasar)](#-4-yang-harus-disiapkan-dasar)
 - [Pilih sistem operasi kamu](#pilih-sistem-operasi-kamu)
@@ -25,7 +25,7 @@ Dokumen ini ditulis dengan bahasa sederhana. Cukup ikuti langkahnya.
 
 ---
 
-## 🔁 1. Failover multi API key (prioritas)
+## 🔁 1. Failover multi API Key (prioritas)
 
 Di setup ini saya memakai **lebih dari satu API key untuk layanan yang sama** - contohnya beberapa akun **OpenCode Zen**, dan tiap akun dapat model gratis **Big Pickle** dengan kuota masing-masing. Masalahnya: kalau kuota satu key habis, opencode hanya mencoba terus dan mentok di error. Supaya kamu (dan tim saya) tidak perlu pindah key secara manual, saya sudah implementasikan konsep berikut: **key berpindah otomatis tanpa mengubah model** - dan sudah berjalan di setup ini.
 
@@ -41,7 +41,7 @@ Keputusan saya: untuk kasus seperti ini yang tepat bukan plugin, melainkan **key
 
 ### Konsep yang saya pilih: key-pool proxy lokal
 
-Satu proxy kecil yang saya jalankan di komputer, duduk di antara opencode dan server Zen. opencode hanya bicara ke proxy; proxy yang memegang daftar key dan memilih key mana yang dipakai setiap request.
+Satu proxy kecil yang saya jalankan di komputer, terdapat di antara opencode dan server Zen. opencode hanya berkomunikasi ke proxy; proxy yang memegang daftar key dan memilih key mana yang dipakai setiap request.
 
 ```
 opencode (TUI / opencode run / MCP / curl)
@@ -95,7 +95,7 @@ Karena logika ini ada di level HTTP, satu konsep ini langsung berlaku untuk **TU
 
 > ✅ **Status: sudah saya implementasikan.** Skrip `keys-pool-server.js` sudah jadi dan ada di repo ini - ikuti Bagian 1 di panduan sistem operasi kamu untuk langkah nyatanya.
 
-### Perbandingan pendekatan (yang saya pertimbangkan)
+### Perbandingan pendekatan
 
 Supaya keputusan di atas jelas, ini catatan perbandingan saya:
 
@@ -148,7 +148,7 @@ File ini satu-satunya yang "menjalankan" konsep failover. Alur yang dikerjakan k
 
 **8. Menjaga state tetap tersimpan (baris 104-122, 361-362).** Setiap ada perubahan cooldown, `cooldowns.json` disimpan setelah jeda 500 ms (biar tidak boros disk). Saat server dimatikan (Ctrl+C / SIGTERM), state dipaksa disimpan dulu supaya tidak hilang.
 
-### Konfigurasi opencode (yang saya siapkan)
+### Konfigurasi opencode
 
 Cukup tambah **satu** custom provider (bukan satu per key):
 
@@ -170,7 +170,7 @@ Cukup tambah **satu** custom provider (bukan satu per key):
 
 Lalu pakai `"model": "zen-proxy/big-pickle"` sebagai model bawaan. Key asli **tidak pernah masuk config** - proxy yang menyuntikkan key dari `keys.env`.
 
-### Kapan memakai yang mana (panduan buat tim)
+### Kapan memakai yang mana?
 
 | Kebutuhan kamu | Pilih |
 |---|---|
@@ -178,7 +178,7 @@ Lalu pakai `"model": "zen-proxy/big-pickle"` sebagai model bawaan. Key asli **ti
 | Mau pindah ke model lain saat limit (misal Big Pickle → Claude) | Plugin `@razroo/opencode-model-fallback` |
 | Ingin proxy siap pakai dari komunitas | `oswap`, `opencode-go-multi-auth` |
 
-### Setup langkah demi langkah (sudah berjalan)
+### Setup langkah demi langkah
 
 Urut dari **Langkah 1** sampai **Langkah 8** - detail perintah persis untuk Windows/macOS ada di **Bagian 1** panduan sistem operasi kamu:
 
@@ -197,7 +197,7 @@ Urut dari **Langkah 1** sampai **Langkah 8** - detail perintah persis untuk Wind
 
 ---
 
-## 🧩 2. MCP (tools tambahan - utama)
+## 🧩 2. MCP (tools tambahan)
 
 Bagian utama kedua dari project ini. **MCP (Model Context Protocol)** memberi agent "tools tambahan" - seperti aplikasi baru yang bisa dipanggil. Dengan MCP, agent bisa buka browser, akses GitHub, query database, mengedit media, dan banyak lagi.
 
