@@ -41,14 +41,14 @@ Jika ini pertama kali membaca, mulai dari [README utama](../..) untuk paham kons
  request dari opencode
       → pilih key teratas yang TIDAK pending
       → teruskan ke https://opencode.ai/zen/v1
-      → respons 429/402?   ── ya ──► tandai key PENDING (pakai Retry-After)
-      → respons normal?        │        lalu coba key berikutnya
-           └─► teruskan ke     │
-               opencode        ▼
-                 (SSE)    semua key pending? ── tidak ──► ulangi
-                 ▲               │
-                 │              ya ▼
-                 └──────── balas 429 + pesan jelas ke opencode
+      → respons 429/402?  ── ya ──► tandai key PENDING (pakai Retry-After)
+      → respons lain?           │        lalu coba key berikutnya
+           ├─ 2xx / SSE stream  │
+           └─→ teruskan ke      ▼
+               opencode   semua key pending? ── tidak ──► ulangi
+                  ▲              │
+                  │             ya ▼
+                  └───── balas 429 + pesan jelas ke opencode
 ```
 
 **Penjelasan singkat:** satu key sehat → request diteruskan langsung (termasuk token streaming). Kuota key habis (`429`/`402`) → key itu menunggu dulu, proxy otomatis pakai key berikutnya. Semua key menunggu → proxy bilang ke opencode *"semua key sedang cooldown"*. Setelah jeda habis, key aktif lagi; state disimpan di `cooldowns.json` jadi awet walau komputer di-restart.

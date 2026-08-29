@@ -62,37 +62,23 @@ opencode (TUI / opencode run / MCP / curl)
                            │
                            ▼
         teruskan request ke https://opencode.ai/zen/v1
-                           │
-               ┌───────────┴───────────┐
-               ▼                       ▼
-       respons 429/402 kuota?      respons lain?
-               │                       │
-              ya                       │
-               │                       ├─────► 4xx non-kuota
-               ▼                       │       → teruskan apa adanya
-      tandai key = PENDING             │
-      (durasi pakai Retry-After)       │
-               │                       │
-               ▼                       │
-   masih ada key lain yang aktif?      │
-       ┌──────┴──────┐                 │
-       ▼             ▼                 │
-      ya           tidak               │
-       │             │                 │
-       ▼             │                 │
-   kembali ke        │                 │
-   pilih key         │                 │
-   berikutnya        │                 │
-       └──────┬──────┘                 │
-              ▼                        ▼
-   semua key pending?           respons OK / SSE stream
-      ┌──────┴──────┐           diteruskan ke opencode
-      ▼             ▼
-     ya           tidak
-      │             │
-      ▼             └────────────► ulangi pemilihan key
-   balas 429 + pesan
-   mudah dibaca ke opencode
+              ┌───────────┴───────────┐
+              ▼                       ▼
+      respons 429/402 kuota?     respons lain?
+              │                       │
+             ya                       └────► 2xx / SSE stream (normal)
+              ▼                              atau 4xx non-kuota
+     tandai key = PENDING                    → teruskan apa adanya
+     (durasi pakai Retry-After)                ke opencode, selesai
+              │
+              ▼
+  masih ada key aktif lain? ── ya ──► kembali ke "pilih key"
+              │                          (key berikutnya)
+              ▼          tidak
+   semua key pending? ── tidak ──► kembali ke "pilih key"
+              │                        (ada key yang pulih)
+              ▼          ya
+   balas 429 + pesan mudah dibaca ke opencode
 ```
 
 #### Penjelasan langkah demi langkah
