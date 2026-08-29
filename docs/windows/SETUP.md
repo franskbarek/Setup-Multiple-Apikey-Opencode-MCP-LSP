@@ -430,15 +430,15 @@ Semua server di tabel ini bekerja di **agent apa pun** (Opencode, Claude, Cursor
 
 ### 🔁 Failover multi API key Zen (opsional)
 
-**Masalah:** kamu punya beberapa API key OpenCode Zen (model gratis **Big Pickle** punya kuota sendiri per akun). Saat kuota satu key habis, opencode hanya mentok - tidak pindah sendiri.
+**Masalah yang saya temui:** saya punya beberapa API key OpenCode Zen (model gratis **Big Pickle** punya kuota sendiri per akun). Saat kuota satu key habis, opencode hanya mentok - tidak pindah sendiri.
 
-**Konsep:** arahkan opencode ke **proxy lokal** yang memegang daftar key (file `keys.env`) lalu meneruskan ke `https://opencode.ai/zen/v1`. Saat upstream membalas `429`/`402` kuota, proxy menandai key itu *pending* dan memakai key berikutnya - berlaku untuk TUI, `opencode run`, MCP, dan curl sekaligus.
+**Konsep yang saya pilih:** arahkan opencode ke **proxy lokal** yang memegang daftar key (file `keys.env`) lalu meneruskan ke `https://opencode.ai/zen/v1`. Saat upstream membalas `429`/`402` kuota, proxy menandai key itu *pending* dan memakai key berikutnya - berlaku untuk TUI, `opencode run`, MCP, dan curl sekaligus.
 
-> ⚠️ **Status: rencana.** Skrip `keys-pool-server.js` **belum dibuat**. Bagian ini menyiapkan konsep & konfigurasinya. Penjelasan lengkap + perbandingan ada di bagian "🔁 Failover multi API key (OpenCode Zen)" di [README utama](../../..#failover-multi-api-key-opencode-zen).
+> ⚠️ **Status dari saya:** ini masih **rencana** - skrip `keys-pool-server.js` **belum saya buat**. Bagian ini saya tulis untuk menyiapkan konsep & konfigurasinya. Penjelasan lengkap + perbandingan ada di bagian "🔁 Failover multi API key (OpenCode Zen)" di [README utama](../../..#failover-multi-api-key-opencode-zen).
 
-**Rencana isi `keys-pool-server.js`** (Node, tanpa dependency, taruh di samping `run-with-failover.sh`):
+**Rencana isi `keys-pool-server.js`** (Node, tanpa dependency, saya taruh di samping `run-with-failover.sh`):
 
-| Aspek | Rencana |
+| Aspek | Rencana saya |
 |---|---|
 | Alamat | `127.0.0.1:8765` saja - tidak terbuka ke jaringan |
 | Key | baca `keys.env` di folder sama (satu per baris, atas = prioritas) |
@@ -449,7 +449,7 @@ Semua server di tabel ini bekerja di **agent apa pun** (Opencode, Claude, Cursor
 | Streaming | SSE `chat/completions` diteruskan byte-by-byte |
 | Opsi CLI | `--port`, `--keys-file`, `--dry-run`, `--reset-cooldowns` |
 
-**Konfigurasi opencode** (tambahkan satu provider saja, bukan satu per key):
+**Konfigurasi opencode yang saya siapkan** (tambah satu provider saja, bukan satu per key):
 
 ```json
 "providers": {
@@ -464,7 +464,7 @@ Semua server di tabel ini bekerja di **agent apa pun** (Opencode, Claude, Cursor
 }
 ```
 
-lalu ubah `"model"` menjadi `"zen-proxy/big-pickle"`. Key asli tidak pernah masuk config - proxy menyuntikkan key dari `keys.env`.
+lalu ubah `"model"` menjadi `"zen-proxy/big-pickle"`. Key asli **tidak pernah masuk config** - proxy menyuntikkan key dari `keys.env`.
 
 **Cara memakai (setelah skrip jadi):**
 
