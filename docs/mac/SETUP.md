@@ -167,6 +167,7 @@ Ikuti petunjuk di layar untuk tiap provider yang kamu pakai. Token disimpan di *
 Tambahkan baris berikut ke file `~/.zshrc`:
 
 ```bash
+export OPENCODE_API_KEY="oc_zen_xxx"
 export ANTHROPIC_API_KEY="sk-ant-xxx"
 export OPENAI_API_KEY="sk-xxx"
 export GEMINI_API_KEY="AIza-xxx"
@@ -177,6 +178,8 @@ Lalu muat ulang pengaturannya:
 ```bash
 source ~/.zshrc
 ```
+
+> Ganti `oc_zen_xxx`, `sk-ant-xxx`, `sk-xxx`, `AIza-xxx` dengan token asli kamu. `OPENCODE_API_KEY` dipakai untuk model gratis Big Pickle (Opencode Zen) di config Bagian 5.
 
 <p align="right"><a href="#top">⬆ Kembali ke atas</a></p>
 
@@ -221,15 +224,28 @@ Jika folder `.config` belum ada, buat dulu. Lalu isi file tersebut dengan:
   "model": "opencode/big-pickle",
   "small_model": "opencode/big-pickle",
 
-  "enabled_providers": ["anthropic", "openai", "google"],
+  "enabled_providers": ["opencode", "anthropic", "openai", "google"],
 
   "provider": {
+    "opencode": { "options": { "apiKey": "{env:OPENCODE_API_KEY}" } },
     "anthropic": { "options": { "apiKey": "{env:ANTHROPIC_API_KEY}" } },
     "openai": { "options": { "apiKey": "{env:OPENAI_API_KEY}" } },
     "google": { "options": { "apiKey": "{env:GEMINI_API_KEY}" } }
   },
 
   "lsp": {
+    "typescript": {
+      "command": ["typescript-language-server", "--stdio"],
+      "extensions": [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]
+    },
+    "go": {
+      "command": ["gopls"],
+      "extensions": [".go"]
+    },
+    "python": {
+      "command": ["pyright", "--stdio"],
+      "extensions": [".py"]
+    },
     "html": {
       "command": ["vscode-langservers-extracted", "--stdio"],
       "extensions": [".html"]
@@ -345,6 +361,7 @@ Agent opencode seharusnya bisa melihat error/warning dari file tersebut (fitur L
 ### 6.3 Cek environment variable
 
 ```bash
+echo $OPENCODE_API_KEY
 echo $GITHUB_PERSONAL_ACCESS_TOKEN
 echo $ANTHROPIC_API_KEY
 ```

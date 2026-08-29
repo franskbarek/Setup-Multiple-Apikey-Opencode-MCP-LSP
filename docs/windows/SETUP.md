@@ -172,15 +172,16 @@ Set token sebagai environment variable dengan syntax **Git Bash** (sama seperti 
 
 ```bash
 # Set untuk sesi ini saja (sekali jalan, hilang setelah Git Bash ditutup)
-export ANTHROPIC_API_KEY="sk-ant-xxx"
+export OPENCODE_API_KEY="oc_zen_xxx"
 
 # Set permanen untuk selamanya - tambahkan baris berikut ke ~/.bashrc
+echo 'export OPENCODE_API_KEY="oc_zen_xxx"' >> ~/.bashrc
 echo 'export ANTHROPIC_API_KEY="sk-ant-xxx"' >> ~/.bashrc
 echo 'export OPENAI_API_KEY="sk-xxx"' >> ~/.bashrc
 echo 'export GEMINI_API_KEY="AIza-xxx"' >> ~/.bashrc
 ```
 
-> Setelah menambah ke `~/.bashrc`, jalankan `source ~/.bashrc` (atau buka ulang Git Bash) agar langsung aktif. Ganti `sk-ant-xxx`, `sk-xxx`, `AIza-xxx` dengan token asli kamu.
+> Setelah menambah ke `~/.bashrc`, jalankan `source ~/.bashrc` (atau buka ulang Git Bash) agar langsung aktif. Ganti `oc_zen_xxx`, `sk-ant-xxx`, `sk-xxx`, `AIza-xxx` dengan token asli kamu. `OPENCODE_API_KEY` dipakai untuk model gratis Big Pickle (Opencode Zen) di config Bagian 5.
 
 <p align="right"><a href="#top">⬆ Kembali ke atas</a></p>
 
@@ -224,15 +225,28 @@ Jika folder/`.config` belum ada, buat dulu. Lalu isi file tersebut dengan:
   "model": "opencode/big-pickle",
   "small_model": "opencode/big-pickle",
 
-  "enabled_providers": ["anthropic", "openai", "google"],
+  "enabled_providers": ["opencode", "anthropic", "openai", "google"],
 
   "provider": {
+    "opencode": { "options": { "apiKey": "{env:OPENCODE_API_KEY}" } },
     "anthropic": { "options": { "apiKey": "{env:ANTHROPIC_API_KEY}" } },
     "openai": { "options": { "apiKey": "{env:OPENAI_API_KEY}" } },
     "google": { "options": { "apiKey": "{env:GEMINI_API_KEY}" } }
   },
 
   "lsp": {
+    "typescript": {
+      "command": ["typescript-language-server", "--stdio"],
+      "extensions": [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]
+    },
+    "go": {
+      "command": ["gopls"],
+      "extensions": [".go"]
+    },
+    "python": {
+      "command": ["pyright", "--stdio"],
+      "extensions": [".py"]
+    },
     "html": {
       "command": ["vscode-langservers-extracted", "--stdio"],
       "extensions": [".html"]
@@ -348,6 +362,7 @@ Agent opencode seharusnya bisa melihat error/warning dari file tersebut (fitur L
 ### 6.3 Cek environment variable (Git Bash)
 
 ```bash
+echo $OPENCODE_API_KEY
 echo $GITHUB_PERSONAL_ACCESS_TOKEN
 echo $ANTHROPIC_API_KEY
 ```
