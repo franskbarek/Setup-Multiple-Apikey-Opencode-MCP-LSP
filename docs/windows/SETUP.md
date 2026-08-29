@@ -6,7 +6,7 @@
 > 2. **🧩 MCP (Bagian 5) = utama** - tools tambahan untuk agent (browser, GitHub, database, media, dsb.).
 > 3. **🪶 LSP (Bagian 6) = opsional** - pemeriksa bahasa. Tetap ada caranya.
 
-Jika ini pertama kali membaca, mulai dari [README utama](../..) untuk paham konsepnya dengan bahasa sederhana.
+Jika ini pertama kali membaca, mulai dari [README utama](../../README.md) untuk paham konsepnya dengan bahasa sederhana.
 
 > 💡 **Disarankan memakai Git Bash** untuk semua langkah di panduan ini (bukan CMD/PowerShell). Git Bash sudah otomatis ikut terinstall bersama [Git for Windows](https://git-scm.com), dan syntax perintahnya sama dengan di macOS - jadi kamu cukup hafal satu cara.
 >
@@ -53,7 +53,7 @@ Jika ini pertama kali membaca, mulai dari [README utama](../..) untuk paham kons
 
 **Penjelasan singkat:** satu key sehat → request diteruskan langsung (termasuk token streaming). Kuota key habis (`429`/`402`) → key itu menunggu dulu, proxy otomatis pakai key berikutnya. Semua key menunggu → proxy bilang ke opencode *"semua key sedang cooldown"*. Setelah jeda habis, key aktif lagi; state disimpan di `cooldowns.json` jadi awet walau komputer di-restart.
 
-> ✅ **Status: sudah saya implementasikan.** Skrip `keys-pool-server.js` tersedia di [repo utama](../../keys-pool-server.js). Penjelasan konsep + perbandingan ada di [README utama](../../..#-1-failover-multi-api-key-prioritas).
+> ✅ **Status: sudah saya implementasikan.** Skrip `keys-pool-server.js` tersedia di [repo utama](../../keys-pool-server.js). Penjelasan konsep + perbandingan ada di [README utama](../../README.md#-1-failover-multi-api-key-prioritas).
 
 > ⚠️ Bagian ini butuh **Node.js ≥ 20** dan **opencode** terinstall. Kalau belum ada, kerjakan **Bagian 2 & 3** dulu (sekitar 10 menit), lalu kembali ke sini.
 
@@ -405,7 +405,7 @@ Jika folder/`.config` belum ada, buat dulu. File ini adalah file yang sama denga
 }
 ```
 
-> 🔎 **Penjelasan tiap kunci config** (`model`, `small_model`, `provider`, `mcp`, `lsp`, dsb.) ada di [README - Memahami isi file config opencode.json](../../..#memahami-isi-file-config-opencodejson).
+> 🔎 **Penjelasan tiap kunci config** (`model`, `small_model`, `provider`, `mcp`, `lsp`, dsb.) ada di [README - Memahami isi file config opencode.json](../../README.md#memahami-isi-file-config-opencodejson).
 
 > **Catatan `enabled`:** setiap MCP server punya flag `"enabled": true/false` - ganti nilainya untuk mengaktifkan/menonaktifkan server tertentu tanpa harus menghapusnya dari file. Contoh: `postgres` dan `sqlite` sengaja `false` karena butuh database; jika suatu saat mau dipakai, cukup ubah jadi `true`.
 
@@ -620,4 +620,4 @@ echo $ANTHROPIC_API_KEY
 
 ---
 
-Sudah beres? Kembali ke [README utama](../..) atau lihat [Setup macOS](../mac/SETUP.md).
+Sudah beres? Kembali ke [README utama](../../README.md) atau lihat [Setup macOS](../mac/SETUP.md).
