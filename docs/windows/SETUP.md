@@ -237,8 +237,6 @@ C:\Users\<NamaUser>\.config\opencode\opencode.json
 
 Jika folder/`.config` belum ada, buat dulu. Lalu isi file tersebut dengan:
 
-> **Catatan `enabled`:** setiap MCP server punya flag `"enabled": true/false` - ganti nilainya untuk mengaktifkan/menonaktifkan server tertentu tanpa harus menghapusnya dari file. Contoh: `postgres` dan `sqlite` sengaja `false` karena butuh database; jika suatu saat mau dipakai, cukup ubah jadi `true`.
-
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
@@ -258,31 +256,38 @@ Jika folder/`.config` belum ada, buat dulu. Lalu isi file tersebut dengan:
   "lsp": {
     "typescript": {
       "command": ["typescript-language-server", "--stdio"],
-      "extensions": [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]
+      "extensions": [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"],
+      "disabled": false
     },
     "go": {
       "command": ["gopls"],
-      "extensions": [".go"]
+      "extensions": [".go"],
+      "disabled": false
     },
     "python": {
       "command": ["pyright", "--stdio"],
-      "extensions": [".py"]
+      "extensions": [".py"],
+      "disabled": false
     },
     "html": {
       "command": ["vscode-langservers-extracted", "--stdio"],
-      "extensions": [".html"]
+      "extensions": [".html"],
+      "disabled": false
     },
     "css": {
       "command": ["vscode-langservers-extracted", "--stdio"],
-      "extensions": [".css", ".scss", ".less"]
+      "extensions": [".css", ".scss", ".less"],
+      "disabled": false
     },
     "json": {
       "command": ["vscode-langservers-extracted", "--stdio"],
-      "extensions": [".json", ".jsonc"]
+      "extensions": [".json", ".jsonc"],
+      "disabled": false
     },
     "sql": {
       "command": ["sql-language-server", "up", "--method", "stdio"],
-      "extensions": [".sql"]
+      "extensions": [".sql"],
+      "disabled": false
     }
   },
 
@@ -358,7 +363,29 @@ Jika folder/`.config` belum ada, buat dulu. Lalu isi file tersebut dengan:
 }
 ```
 
+> **Catatan `enabled`:** setiap MCP server punya flag `"enabled": true/false` - ganti nilainya untuk mengaktifkan/menonaktifkan server tertentu tanpa harus menghapusnya dari file. Contoh: `postgres` dan `sqlite` sengaja `false` karena butuh database; jika suatu saat mau dipakai, cukup ubah jadi `true`.
+
 > **Catatan MCP media:** dua server di atas (`video` & `artificer`) **mati secara default** (`"enabled": false`) karena butuh tools & API key tambahan. Nyalakan hanya jika dibutuhkan (ubah jadi `true` lalu restart). Rinciannya di bawah.
+
+> **Catatan LSP:** berbeda dari MCP yang memakai `"enabled"`, entri LSP memakai **`"disabled"`** (nilai `false` = aktif, default; `true` = mati). Jadi jangan ubah jadi `"enabled"` di bagian LSP - opencode menolak field itu dan bisa bikin konfigurasi gagal start. `"disabled": false` di semua entri di atas sudah benar untuk "aktif".
+
+### LSP - "pemeriksa" bahasa program
+
+Setiap entri di bagian `"lsp"` menghubungkan satu bahasa dengan **tool pemeriksanya** (server LSP). Kerja agent: saat kamu membuka file dengan ekstensi yang cocok, tool itu mengecek file-nya dan memberi tahu agent kalau ada error/warning, plus saran perbaikan.
+
+| Entri di config | Bahasa | Tool yang dipakai | Perlu diinstall |
+|---|---|---|---|
+| `typescript` | TypeScript / JavaScript | `typescript-language-server` | [Bagian 2.4](#24-opsional---paket-lsp-htmlcssjson-sql-dan-python) |
+| `go` | Go | `gopls` | [Bagian 2.3](#23-opsional---hanya-jika-kamu-menulis-bahasa-berikut) |
+| `python` | Python | `pyright` | [Bagian 2.4](#24-opsional---paket-lsp-htmlcssjson-sql-dan-python) |
+| `html` | HTML | `vscode-langservers-extracted` | [Bagian 2.4](#24-opsional---paket-lsp-htmlcssjson-sql-dan-python) |
+| `css` | CSS / SCSS / LESS | `vscode-langservers-extracted` | [Bagian 2.4](#24-opsional---paket-lsp-htmlcssjson-sql-dan-python) |
+| `json` | JSON / JSONC | `vscode-langservers-extracted` | [Bagian 2.4](#24-opsional---paket-lsp-htmlcssjson-sql-dan-python) |
+| `sql` | SQL | `sql-language-server` | [Bagian 2.4](#24-opsional---paket-lsp-htmlcssjson-sql-dan-python) |
+
+**Yang TIDAK perlu di config** (diinstall **otomatis** oleh opencode): `clangd` (C/C++), `kotlin-ls` (Kotlin), `yaml-ls` (YAML).
+
+> **Penting:** LSP baru bekerja kalau field `extensions` cocok dengan ekstensi file yang kamu buka - dan tool-nya sudah terinstall. Kalau satu bahasa tidak terpasang tool-nya, LSP untuk bahasa itu tetap "aktif" di config tapi tidak melakukan apa-apa sampai tool-nya ada.
 
 ### context7 - MCP paling gampang
 
