@@ -1,7 +1,10 @@
 <a id="top"></a>
 # Setup opencode di Windows - Detail Lengkap
 
-Panduan langkah demi langkah untuk Windows. Mulai dari install tool, konfigurasi LSP & MCP, kelola API key, sampai verifikasi.
+> 🔺 **Prioritas dokumen ini:**
+> 1. **🔁 Failover multi API key (Bagian 1) = PRIORITAS** - konsep inti project ini. Banyak key otomatis berganti saat kuota habis, tanpa pindah model.
+> 2. **🧩 MCP (Bagian 5) = utama** - tools tambahan untuk agent (browser, GitHub, database, media, dsb.).
+> 3. **🪶 LSP (Bagian 6) = opsional** - pemeriksa bahasa. Tetap ada caranya.
 
 Jika ini pertama kali membaca, mulai dari [README utama](../..) untuk paham konsepnya dengan bahasa sederhana.
 
@@ -9,35 +12,164 @@ Jika ini pertama kali membaca, mulai dari [README utama](../..) untuk paham kons
 >
 > Cara membuka Git Bash: klik kanan di folder mana pun → **Git Bash Here**, atau cari "Git Bash" di Start Menu.
 >
-> **Kapan wajib Git Bash?** Saat mengatur API Key lewat environment variable (Bagian 3 & 4). Perintah `winget`, `npm`, `npx`, dan `opencode` tetap bisa dijalankan dari terminal mana pun.
+> **Kapan wajib Git Bash?** Saat mengatur API Key lewat environment variable (Bagian 4). Perintah `winget`, `npm`, `npx`, dan `opencode` tetap bisa dijalankan dari terminal mana pun.
 
 ## Daftar Isi
 
-- [1. Yang Perlu Disiapkan](#1-yang-perlu-disiapkan)
-- [2. Install Tools di Windows](#2-install-tools-di-windows)
-- [3. Mengatur API Key (Provider AI)](#3-mengatur-api-key-provider-ai)
-- [4. Mengatur GitHub Token (untuk MCP GitHub)](#4-mengatur-github-token-untuk-mcp-github)
-- [5. Membuat File Konfigurasi](#5-membuat-file-konfigurasi)
-- [6. Verifikasi](#6-verifikasi)
-- [7. Troubleshooting Windows](#7-troubleshooting-windows)
+- [1. Failover multi API key (PRIORITAS)](#1-failover-multi-api-key-prioritas)
+- [2. Yang Perlu Disiapkan](#2-yang-perlu-disiapkan)
+- [3. Install Tools di Windows](#3-install-tools-di-windows)
+- [4. Mengatur API Key & GitHub Token (opsional)](#4-mengatur-api-key--github-token-opsional)
+- [5. Membuat File Konfigurasi (MCP + failover)](#5-membuat-file-konfigurasi-mcp--failover)
+- [6. LSP - Opsional (tetap ada caranya)](#6-lsp---opsional-tetap-ada-caranya)
+- [7. Verifikasi](#7-verifikasi)
+- [8. Troubleshooting Windows](#8-troubleshooting-windows)
 
 ---
 
-## 1. Yang Perlu Disiapkan
+## 1. Failover multi API key (PRIORITAS)
 
-Kebutuhan diprioritaskan: **pasang dulu yang wajib (Node.js & Git), sisanya opsional.** Persiapan bahasa pemrograman (LSP) **TIDAK prioritas** - cukup pasang bahasa yang kamu tulis, sisanya boleh dilewati.
+**Ini bagian paling penting dari project ini.** Konsepnya: beberapa API key untuk layanan yang sama (misal beberapa akun **OpenCode Zen**, tiap akun dapat model gratis **Big Pickle** dengan kuota masing-masing) dipakai **bergantian otomatis**. Kalau kuota satu key habis, key berikutnya langsung dipakai - kamu tidak perlu pindah key manual.
 
-### 1.1 Prioritas utama - wajib dulu
+**Masalah yang saya temui:** saat kuota satu key habis, opencode hanya mentok - tidak pindah sendiri.
 
-Tool yang benar-benar dibutuhkan untuk memakai opencode:
+**Konsep yang saya pilih:** arahkan opencode ke **proxy lokal** yang memegang daftar key (file `keys.env`) lalu meneruskan ke `https://opencode.ai/zen/v1`. Saat upstream membalas `429`/`402` kuota, proxy menandai key itu *pending* dan memakai key berikutnya - berlaku untuk TUI, `opencode run`, MCP, dan curl sekaligus.
+
+**Alurnya:**
+
+```
+ request dari opencode
+      → pilih key teratas yang TIDAK pending
+      → teruskan ke https://opencode.ai/zen/v1
+      → respons 429/402?   ── ya ──► tandai key PENDING (pakai Retry-After)
+      → respons normal?        │        lalu coba key berikutnya
+           └─► teruskan ke     │
+               opencode        ▼
+                 (SSE)    semua key pending? ── tidak ──► ulangi
+                 ▲               │
+                 │              ya ▼
+                 └──────── balas 429 + pesan jelas ke opencode
+```
+
+**Penjelasan singkat:** satu key sehat → request diteruskan langsung (termasuk token streaming). Kuota key habis (`429`/`402`) → key itu menunggu dulu, proxy otomatis pakai key berikutnya. Semua key menunggu → proxy bilang ke opencode *"semua key sedang cooldown"*. Setelah jeda habis, key aktif lagi; state disimpan di `cooldowns.json` jadi awet walau komputer di-restart.
+
+> ✅ **Status: sudah saya implementasikan.** Skrip `keys-pool-server.js` tersedia di [repo utama](../../keys-pool-server.js). Penjelasan konsep + perbandingan ada di [README utama](../../..#-1-failover-multi-api-key-prioritas).
+
+> ⚠️ Bagian ini butuh **Node.js ≥ 20** dan **opencode** terinstall. Kalau belum ada, kerjakan **Bagian 2 & 3** dulu (sekitar 10 menit), lalu kembali ke sini.
+
+**Cara pasang - ikuti urut dari Langkah 1 sampai Langkah 8:**
+
+#### Langkah 1 - Siapkan folder
+
+Buat folder tempat proxy tinggal (tidak masalah kalau sudah ada):
+
+```bash
+mkdir -p /c/Users/frans/opencode-failover
+```
+
+#### Langkah 2 - Salin skrip
+
+Salin file `keys-pool-server.js` dari folder paling atas repo ini ke folder di Langkah 1. Boleh lewat file manager: copy file lalu paste ke `C:\Users\frans\opencode-failover`.
+
+#### Langkah 3 - Isi daftar key
+
+Buat file `keys.env` di folder yang sama (folder `opencode-failover`). Isi **satu key per baris**, baris paling atas = prioritas:
+
+```
+AQ.Ab81XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+AQ.Ab82XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+```
+
+Baris kosong dan baris yang diawali `#` diabaikan. Simpan. (Jangan pernah unggah `keys.env` ke mana pun.)
+
+#### Langkah 4 - Cek dulu, tanpa menjalankan apa pun
+
+```bash
+cd /c/Users/frans/opencode-failover
+node keys-pool-server.js --dry-run
+```
+
+Seharusnya muncul jumlah key yang terbaca dan perintah siap. Kalau muncul tulisan **"Tidak ada key valid"**, periksa kembali `keys.env` di Langkah 3.
+
+#### Langkah 5 - Jalankan proxy
+
+```bash
+node keys-pool-server.js
+```
+
+Biarkan jendela Git Bash ini tetap terbuka selama opencode dipakai. Seharusnya muncul:
+
+```
+keys-pool-server berjalan di http://127.0.0.1:8765
+```
+
+#### Langkah 6 - Cek kondisi proxy
+
+Buka **jendela Git Bash kedua**, lalu jalankan:
+
+```bash
+curl http://127.0.0.1:8765/status
+```
+
+Harus muncul daftar key dengan status `active`. Kalau ada key yang sedang menunggu, statusnya `cooldown` dengan hitungan mundur.
+
+#### Langkah 7 - Arahkan opencode ke proxy
+
+Buka file `opencode.json` (lokasinya di Bagian 5). Kalau belum ada, buat dengan isi minimal berikut:
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "zen-proxy/big-pickle",
+  "provider": {
+    "zen-proxy": {
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "http://127.0.0.1:8765/v1",
+        "apiKey": "sk-proxy-dummy"
+      },
+      "models": { "big-pickle": { "name": "Big Pickle (via key-pool proxy)" } }
+    }
+  }
+}
+```
+
+Key asli **tidak pernah masuk file ini** - key dipegang `keys.env` oleh proxy.
+
+#### Langkah 8 - Restart & verifikasi
+
+1. Tutup opencode, lalu buka lagi.
+2. Ajukan satu pertanyaan - kalau dijawab, berarti proxy sudah jalan.
+3. Saat kuota key #1 habis, cek `/status` (Langkah 6): key #1 berubah jadi `cooldown`, dan permintaan berikutnya otomatis memakai key #2.
+
+**Kalau ada masalah:**
+
+| Masalah | Solusi |
+|---|---|
+| `zen-proxy` tidak jalan | Pastikan Langkah 5 masih berjalan, dan model memakai `zen-proxy/big-pickle` di Langkah 7 |
+| Semua key `cooldown` | Tunggu hitungan mundur selesai, atau reset: `node keys-pool-server.js --reset-cooldowns` |
+
+**Alternatif (tanpa membangun ini):** `@razroo/opencode-model-fallback` untuk pindah model, atau `oswap`/`opencode-go-multi-auth` sebagai proxy siap pakai - bandingkan di README.
+
+<p align="right"><a href="#top">⬆ Kembali ke atas</a></p>
+
+---
+
+## 2. Yang Perlu Disiapkan
+
+Untuk failover + MCP, kebutuhan diprioritaskan: **pasang dulu yang wajib (Node.js & Git), sisanya opsional.** Persiapan bahasa pemrograman (LSP, Bagian 6) **TIDAK prioritas** - cukup pasang bahasa yang kamu tulis, sisanya boleh dilewati.
+
+### 2.1 Prioritas utama - wajib dulu
+
+Tool yang benar-benar dibutuhkan untuk memakai opencode dan proxy failover:
 
 | Tool | Fungsinya | Cara cek |
 |---|---|---|
 | opencode (CLI) | Aplikasi utama AI coding agent | `opencode --version` |
-| [Node.js](https://nodejs.org) ≥ 20 | Wajib - menjalankan opencode & MCP server berbasis JavaScript (filesystem, memory, playwright, dll.) | `node -v` |
+| [Node.js](https://nodejs.org) ≥ 20 | Wajib - menjalankan opencode, **proxy failover**, & MCP server berbasis JavaScript (filesystem, memory, playwright, dll.) | `node -v` |
 | [Git](https://git-scm.com) | Wajib - version control, dibutuhkan hampir semua project & MCP git (sekaligus menyediakan **Git Bash**) | `git --version` |
 
-### 1.2 Opsional - pasang sesuai kebutuhan
+### 2.2 Opsional - pasang sesuai kebutuhan
 
 Semua di bawah ini **boleh dilewati dulu**. Pasang hanya kalau butuh:
 
@@ -47,23 +179,7 @@ Semua di bawah ini **boleh dilewati dulu**. Pasang hanya kalau butuh:
 |---|---|---|
 | [uv (Python)](https://docs.astral.sh/uv/) | Menjalankan MCP server berbasis Python (git, fetch, postgres) | `uv --version` |
 
-**Bahasa pemrograman (LSP) - TIDAK prioritas:** install hanya bahasa yang sering kamu tulis. Jika kamu tidak menulis bahasa tertentu, tool-nya TIDAK perlu dipasang.
-
-| Bahasa | Tool yang diinstall | Untuk LSP |
-|---|---|---|
-| Go | [Go](https://go.dev) | `gopls` |
-| Rust | [rustup](https://rustup.rs) | `rust-analyzer` |
-| Java | JDK 21+ ([Temurin](https://adoptium.net)) | `jdtls` |
-| C/C++ | Tidak perlu manual - `clangd` diinstall otomatis oleh opencode | `clangd` |
-| Kotlin | Tidak perlu manual - `kotlin-ls` diinstall otomatis oleh opencode | `kotlin-ls` |
-
-**Paket LSP tambahan:** hanya jika kamu menulis HTML/CSS/JSON, SQL, atau Python.
-
-| Paket (npm) | Untuk bahasa |
-|---|---|
-| `vscode-langservers-extracted` | HTML, CSS, JSON |
-| `sql-language-server` | SQL |
-| `pyright` | Python |
+**Bahasa pemrograman (LSP) - TIDAK prioritas:** lihat Bagian 6. Install hanya bahasa yang sering kamu tulis.
 
 **MCP browser (Playwright):** hanya jika kamu ingin opencode bisa membuka / berinteraksi dengan browser.
 
@@ -74,17 +190,17 @@ Semua di bawah ini **boleh dilewati dulu**. Pasang hanya kalau butuh:
 | [FFmpeg](https://ffmpeg.org) | Mesin processing video & audio (trim, gabung, resize, subtitle, dll.) | `ffmpeg -version` |
 | [ImageMagick](https://imagemagick.org) | Mesin processing gambar (resize, composite, effects) - khusus `artificer` | `magick -version` |
 
-> **Di komputer ini:** Node.js dan Git sudah ada. uv, Go, Rust, Java, FFmpeg, dan ImageMagick **belum** - pasang hanya jika dibutuhkan, lewat [Bagian 2](#2-install-tools-di-windows).
+> **Di komputer ini:** Node.js dan Git sudah ada. uv, FFmpeg, dan ImageMagick **belum** - pasang hanya jika dibutuhkan, lewat [Bagian 3](#3-install-tools-di-windows).
 
 <p align="right"><a href="#top">⬆ Kembali ke atas</a></p>
 
 ---
 
-## 2. Install Tools di Windows
+## 3. Install Tools di Windows
 
-Buka **Git Bash** (disarankan, lihat catatan di atas), lalu jalankan perintah sesuai kelompok. **Mulai dari prioritas utama (2.1) dulu - sisanya opsional.**
+Buka **Git Bash** (disarankan, lihat catatan di atas), lalu jalankan perintah sesuai kelompok. **Mulai dari prioritas utama (3.1) dulu - sisanya opsional.**
 
-### 2.1 Prioritas utama - wajib dulu
+### 3.1 Prioritas utama - wajib dulu
 
 ```powershell
 # Node.js (wajib - jalankan jika `node -v` belum muncul)
@@ -94,9 +210,9 @@ winget install --id OpenJS.NodeJS.LTS -e
 winget install --id Git.Git -e
 ```
 
-> Selesai sampai sini, opencode sudah bisa dipakai. Kelompok di bawah **opsional** - pasang hanya yang kamu butuh.
+> Selesai sampai sini, opencode sudah bisa dipakai dan proxy failover bisa jalan. Kelompok di bawah **opsional** - pasang hanya yang kamu butuh.
 
-### 2.2 Opsional - uv (MCP server berbasis Python)
+### 3.2 Opsional - uv (MCP server berbasis Python)
 
 Hanya jika kamu ingin memakai MCP server seperti git, fetch, atau postgres:
 
@@ -104,38 +220,7 @@ Hanya jika kamu ingin memakai MCP server seperti git, fetch, atau postgres:
 winget install --id astral-sh.uv -e
 ```
 
-### 2.3 Opsional - hanya jika kamu menulis bahasa berikut
-
-```powershell
-# Go - hanya jika kamu menulis Go (LSP: gopls)
-winget install --id GoLang.Go -e
-
-# Rust + rust-analyzer - hanya jika kamu menulis Rust
-winget install --id Rustlang.Rustup -e
-rustup component add rust-analyzer
-
-# JDK 21 - hanya jika kamu menulis Java (LSP: jdtls)
-winget install --id EclipseAdoptium.Temurin.21.JDK -e
-```
-
-> **Penting:** Setelah install selesai, **tutup dan buka ulang Git Bash** (atau restart terminal opencode) agar PATH yang baru terbaca.
-
-### 2.4 Opsional - paket LSP HTML/CSS/JSON, SQL, dan Python
-
-Hanya jika kamu menulis bahasa tersebut:
-
-```powershell
-npm install -g pyright vscode-langservers-extracted sql-language-server typescript-language-server
-```
-
-| Paket | Untuk bahasa |
-|---|---|
-| `vscode-langservers-extracted` | HTML, CSS, JSON |
-| `sql-language-server` | SQL |
-| `pyright` | Python |
-| `typescript-language-server` | TypeScript / JavaScript (opsional, sering sudah ada) |
-
-### 2.5 Opsional - MCP browser (Playwright)
+### 3.3 Opsional - MCP browser (Playwright)
 
 Hanya jika kamu ingin opencode bisa membuka browser:
 
@@ -143,7 +228,7 @@ Hanya jika kamu ingin opencode bisa membuka browser:
 npx playwright install chromium
 ```
 
-### 2.6 Opsional - tools untuk MCP media (FFmpeg & ImageMagick)
+### 3.4 Opsional - tools untuk MCP media (FFmpeg & ImageMagick)
 
 Hanya jika kamu ingin agent bisa mengedit/membuat gambar, video, atau musik:
 
@@ -157,19 +242,19 @@ winget install --id ImageMagick.ImageMagick -e
 
 > Cek: `ffmpeg -version` dan `magick -version`. Setelah install, **tutup dan buka ulang Git Bash** agar PATH terbaca.
 
-> LSP C/C++ (`clangd`), Kotlin (`kotlin-ls`), dan YAML (`yaml-ls`) diinstall **otomatis** oleh opencode saat dibutuhkan - tidak perlu manual.
+> **Penting:** Setelah install selesai, **tutup dan buka ulang Git Bash** (atau restart terminal opencode) agar PATH yang baru terbaca.
 
 <p align="right"><a href="#top">⬆ Kembali ke atas</a></p>
 
 ---
 
-## 3. Mengatur API Key (Provider AI)
+## 4. Mengatur API Key & GitHub Token (opsional)
 
-Model gratis **Big Pickle (Opencode Zen)** tetap butuh API key - tapi gratis. Login ke provider **OpenCode Zen**, lalu daftarkan key-nya ke opencode.
+Model gratis **Big Pickle (Opencode Zen)** tetap butuh API key - tapi gratis. Ambil key-nya satu per satu dari akun Zen kamu (beberapa akun = beberapa key untuk failover, ditaruh di `keys.env` Bagian 1).
 
-### 3.1 Login OpenCode Zen (gratis) - untuk mulai memakai
+### 4.1 Dapatkan API key Zen
 
-Buka <https://opencode.ai/zen>, login, dan salin API key-nya. Lalu daftarkan ke opencode:
+Buka <https://opencode.ai/zen>, login, dan salin API key-nya. Kalau pakai failover (Bagian 1), kumpulkan beberapa key ke `keys.env`. Kalau tidak, daftarkan satu key lewat:
 
 ```bash
 opencode auth login
@@ -177,9 +262,9 @@ opencode auth login
 
 Pilih **OpenCode Zen** di daftar provider, lalu tempel API key yang sudah kamu salin.
 
-API key provider berbayar (Anthropic, OpenAI, Google, dsb.) baru dibutuhkan **hanya jika** kamu ingin menambah provider lain selain yang gratis. Section berikut opsional.
+### 4.2 Opsional - login untuk provider lain
 
-### 3.2 Opsional - login lewat perintah untuk provider lain
+API key provider berbayar (Anthropic, OpenAI, Google, dsb.) baru dibutuhkan **hanya jika** kamu ingin menambah provider lain selain yang gratis.
 
 ```bash
 opencode auth login
@@ -187,28 +272,21 @@ opencode auth login
 
 Ikuti petunjuk di layar untuk tiap provider yang kamu pakai. Token disimpan di **Windows Credential Manager** - aman, tidak terlihat di file apa pun.
 
-### 3.3 Atau lewat environment variable (cara Git Bash)
-
-Set token sebagai environment variable dengan syntax **Git Bash** (sama seperti di macOS):
+Atau set sebagai environment variable (cara Git Bash):
 
 ```bash
 # Set untuk sesi ini saja (sekali jalan, hilang setelah Git Bash ditutup)
-export OPENCODE_API_KEY="oc_zen_xxx"
+export ANTHROPIC_API_KEY="sk-ant-xxx"
 
-# Set permanen untuk selamanya - tambahkan baris berikut ke ~/.bashrc
-echo 'export OPENCODE_API_KEY="oc_zen_xxx"' >> ~/.bashrc
+# Set permanen - tambahkan baris berikut ke ~/.bashrc
 echo 'export ANTHROPIC_API_KEY="sk-ant-xxx"' >> ~/.bashrc
 echo 'export OPENAI_API_KEY="sk-xxx"' >> ~/.bashrc
 echo 'export GEMINI_API_KEY="AIza-xxx"' >> ~/.bashrc
 ```
 
-> Setelah menambah ke `~/.bashrc`, jalankan `source ~/.bashrc` (atau buka ulang Git Bash) agar langsung aktif. Ganti `oc_zen_xxx`, `sk-ant-xxx`, `sk-xxx`, `AIza-xxx` dengan token asli kamu. `OPENCODE_API_KEY` dipakai untuk model gratis Big Pickle (Opencode Zen) di config Bagian 5.
+> Setelah menambah ke `~/.bashrc`, jalankan `source ~/.bashrc` (atau buka ulang Git Bash) agar langsung aktif. Ganti `sk-ant-xxx`, `sk-xxx`, `AIza-xxx` dengan token asli kamu.
 
-<p align="right"><a href="#top">⬆ Kembali ke atas</a></p>
-
----
-
-## 4. Mengatur GitHub Token (untuk MCP GitHub)
+### 4.3 Opsional - GitHub token (untuk MCP GitHub)
 
 MCP GitHub dipakai opencode untuk membaca repo, melihat issue/PR, dll.
 
@@ -227,7 +305,7 @@ echo 'export GITHUB_PERSONAL_ACCESS_TOKEN="github_pat_xxx"' >> ~/.bashrc
 
 ---
 
-## 5. Membuat File Konfigurasi
+## 5. Membuat File Konfigurasi (MCP + failover)
 
 Lokasi file konfigurasi global opencode di Windows:
 
@@ -235,59 +313,23 @@ Lokasi file konfigurasi global opencode di Windows:
 C:\Users\<NamaUser>\.config\opencode\opencode.json
 ```
 
-Jika folder/`.config` belum ada, buat dulu. Lalu isi file tersebut dengan:
+Jika folder/`.config` belum ada, buat dulu. File ini adalah file yang sama dengan yang kamu buat di **Bagian 1 Langkah 7** - sekarang diisi lengkap dengan blok **MCP**.
 
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
 
-  "model": "opencode/big-pickle",
-  "small_model": "opencode/big-pickle",
-
-  "enabled_providers": ["opencode", "anthropic", "openai", "google"],
+  "model": "zen-proxy/big-pickle",
+  "small_model": "zen-proxy/big-pickle",
 
   "provider": {
-    "opencode": { "options": { "apiKey": "{env:OPENCODE_API_KEY}" } },
-    "anthropic": { "options": { "apiKey": "{env:ANTHROPIC_API_KEY}" } },
-    "openai": { "options": { "apiKey": "{env:OPENAI_API_KEY}" } },
-    "google": { "options": { "apiKey": "{env:GEMINI_API_KEY}" } }
-  },
-
-  "lsp": {
-    "typescript": {
-      "command": ["typescript-language-server", "--stdio"],
-      "extensions": [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"],
-      "disabled": false
-    },
-    "go": {
-      "command": ["gopls"],
-      "extensions": [".go"],
-      "disabled": false
-    },
-    "python": {
-      "command": ["pyright", "--stdio"],
-      "extensions": [".py"],
-      "disabled": false
-    },
-    "html": {
-      "command": ["vscode-langservers-extracted", "--stdio"],
-      "extensions": [".html"],
-      "disabled": false
-    },
-    "css": {
-      "command": ["vscode-langservers-extracted", "--stdio"],
-      "extensions": [".css", ".scss", ".less"],
-      "disabled": false
-    },
-    "json": {
-      "command": ["vscode-langservers-extracted", "--stdio"],
-      "extensions": [".json", ".jsonc"],
-      "disabled": false
-    },
-    "sql": {
-      "command": ["sql-language-server", "up", "--method", "stdio"],
-      "extensions": [".sql"],
-      "disabled": false
+    "zen-proxy": {
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "http://127.0.0.1:8765/v1",
+        "apiKey": "sk-proxy-dummy"
+      },
+      "models": { "big-pickle": { "name": "Big Pickle (via key-pool proxy)" } }
     }
   },
 
@@ -367,26 +409,6 @@ Jika folder/`.config` belum ada, buat dulu. Lalu isi file tersebut dengan:
 
 > **Catatan MCP media:** dua server di atas (`video` & `artificer`) **mati secara default** (`"enabled": false`) karena butuh tools & API key tambahan. Nyalakan hanya jika dibutuhkan (ubah jadi `true` lalu restart). Rinciannya di bawah.
 
-> **Catatan LSP:** berbeda dari MCP yang memakai `"enabled"`, entri LSP memakai **`"disabled"`** (nilai `false` = aktif, default; `true` = mati). Jadi jangan ubah jadi `"enabled"` di bagian LSP - opencode menolak field itu dan bisa bikin konfigurasi gagal start. `"disabled": false` di semua entri di atas sudah benar untuk "aktif".
-
-### LSP - "pemeriksa" bahasa program
-
-Setiap entri di bagian `"lsp"` menghubungkan satu bahasa dengan **tool pemeriksanya** (server LSP). Kerja agent: saat kamu membuka file dengan ekstensi yang cocok, tool itu mengecek file-nya dan memberi tahu agent kalau ada error/warning, plus saran perbaikan.
-
-| Entri di config | Bahasa | Tool yang dipakai | Perlu diinstall |
-|---|---|---|---|
-| `typescript` | TypeScript / JavaScript | `typescript-language-server` | [Bagian 2.4](#24-opsional---paket-lsp-htmlcssjson-sql-dan-python) |
-| `go` | Go | `gopls` | [Bagian 2.3](#23-opsional---hanya-jika-kamu-menulis-bahasa-berikut) |
-| `python` | Python | `pyright` | [Bagian 2.4](#24-opsional---paket-lsp-htmlcssjson-sql-dan-python) |
-| `html` | HTML | `vscode-langservers-extracted` | [Bagian 2.4](#24-opsional---paket-lsp-htmlcssjson-sql-dan-python) |
-| `css` | CSS / SCSS / LESS | `vscode-langservers-extracted` | [Bagian 2.4](#24-opsional---paket-lsp-htmlcssjson-sql-dan-python) |
-| `json` | JSON / JSONC | `vscode-langservers-extracted` | [Bagian 2.4](#24-opsional---paket-lsp-htmlcssjson-sql-dan-python) |
-| `sql` | SQL | `sql-language-server` | [Bagian 2.4](#24-opsional---paket-lsp-htmlcssjson-sql-dan-python) |
-
-**Yang TIDAK perlu di config** (diinstall **otomatis** oleh opencode): `clangd` (C/C++), `kotlin-ls` (Kotlin), `yaml-ls` (YAML).
-
-> **Penting:** LSP baru bekerja kalau field `extensions` cocok dengan ekstensi file yang kamu buka - dan tool-nya sudah terinstall. Kalau satu bahasa tidak terpasang tool-nya, LSP untuk bahasa itu tetap "aktif" di config tapi tidak melakukan apa-apa sampai tool-nya ada.
-
 ### context7 - MCP paling gampang
 
 Mau merasakan MCP bekerja tanpa ribet? Pakai **`context7`** - sudah `"enabled": true` di config di atas.
@@ -428,134 +450,119 @@ Semua server di tabel ini bekerja di **agent apa pun** (Opencode, Claude, Cursor
 
 > **Setelah menyimpan file ini, WAJIB quit & restart opencode** - konfigurasi hanya dibaca saat opencode dijalankan. Saat menyalakan server media, pastikan juga FFmpeg sudah terinstall (`ffmpeg -version`).
 
-### 🔁 Failover multi API key Zen (opsional)
+<p align="right"><a href="#top">⬆ Kembali ke atas</a></p>
 
-**Masalah yang saya temui:** saya punya beberapa API key OpenCode Zen (model gratis **Big Pickle** punya kuota sendiri per akun). Saat kuota satu key habis, opencode hanya mentok - tidak pindah sendiri.
+---
 
-**Konsep yang saya pilih:** arahkan opencode ke **proxy lokal** yang memegang daftar key (file `keys.env`) lalu meneruskan ke `https://opencode.ai/zen/v1`. Saat upstream membalas `429`/`402` kuota, proxy menandai key itu *pending* dan memakai key berikutnya - berlaku untuk TUI, `opencode run`, MCP, dan curl sekaligus.
+## 6. LSP - Opsional (tetap ada caranya)
 
-**Alurnya:**
+**LSP (Language Server Protocol)** adalah "pemeriksa" bahasa program - seperti *spell checker* di Word, tapi untuk kode. Saat kamu membuka file, agent otomatis tahu kalau ada error/warning dan bisa diberi saran perbaikan.
 
-```
- request dari opencode
-      → pilih key teratas yang TIDAK pending
-      → teruskan ke https://opencode.ai/zen/v1
-      → respons 429/402?   ── ya ──► tandai key PENDING (pakai Retry-After)
-      → respons normal?        │        lalu coba key berikutnya
-           └─► teruskan ke     │
-               opencode        ▼
-                 (SSE)    semua key pending? ── tidak ──► ulangi
-                 ▲               │
-                 │              ya ▼
-                 └──────── balas 429 + pesan jelas ke opencode
-```
+Ini **opsional** - kalau kamu tidak menulis bahasa tertentu, tidak perlu pasang apa-apa. Banyak yang langsung jalan tanpa config, karena opencode memasang beberapa server **otomatis**. Cara di bawah untuk yang mau mengaktifkan LSP untuk bahasa tertentu.
 
-**Penjelasan singkat:** satu key sehat → request diteruskan langsung (termasuk token streaming). Kuota key habis (`429`/`402`) → key itu menunggu dulu, proxy otomatis pakai key berikutnya. Semua key menunggu → proxy bilang ke opencode *"semua key sedang cooldown"*. Setelah jeda habis, key aktif lagi; state disimpan di `cooldowns.json` jadi awet walau komputer di-restart.
+### 6.1 Install tool LSP (opsional)
 
-> ✅ **Status: sudah saya implementasikan.** Skrip `keys-pool-server.js` tersedia di [repo utama](../../keys-pool-server.js) - salin ke folder `opencode-failover`, isi `keys.env`, lalu jalankan. Penjelasan lengkap + perbandingan ada di bagian "🔁 Failover multi API key (OpenCode Zen)" di [README utama](../../..#failover-multi-api-key-opencode-zen).
+Install hanya bahasa yang sering kamu tulis:
 
-**Cara pasang - ikuti urut dari Langkah 1 sampai Langkah 8:**
+```powershell
+# Paket LSP HTML/CSS/JSON, SQL, dan Python
+npm install -g pyright vscode-langservers-extracted sql-language-server typescript-language-server
 
-#### Langkah 1 - Siapkan folder
+# Go - hanya jika kamu menulis Go (LSP: gopls)
+winget install --id GoLang.Go -e
 
-Buat folder tempat proxy tinggal (tidak masalah kalau sudah ada):
+# Rust + rust-analyzer - hanya jika kamu menulis Rust
+winget install --id Rustlang.Rustup -e
+rustup component add rust-analyzer
 
-```bash
-mkdir -p /c/Users/frans/opencode-failover
+# JDK 21 - hanya jika kamu menulis Java (LSP: jdtls)
+winget install --id EclipseAdoptium.Temurin.21.JDK -e
 ```
 
-#### Langkah 2 - Salin skrip
+| Paket | Untuk bahasa |
+|---|---|
+| `vscode-langservers-extracted` | HTML, CSS, JSON |
+| `sql-language-server` | SQL |
+| `pyright` | Python |
+| `typescript-language-server` | TypeScript / JavaScript (opsional, sering sudah ada) |
 
-Salin file `keys-pool-server.js` dari folder paling atas repo ini ke folder di Langkah 1. Boleh lewat file manager: copy file lalu paste ke `C:\Users\frans\opencode-failover`.
+> **Penting:** Setelah install selesai, **tutup dan buka ulang Git Bash** agar PATH yang baru terbaca.
 
-#### Langkah 3 - Isi daftar key
+> LSP C/C++ (`clangd`), Kotlin (`kotlin-ls`), dan YAML (`yaml-ls`) diinstall **otomatis** oleh opencode saat dibutuhkan - tidak perlu manual.
 
-Buat file `keys.env` di folder yang sama (folder `opencode-failover`). Isi **satu key per baris**, baris paling atas = prioritas:
+### 6.2 Tambahkan blok `lsp` di config
 
-```
-AQ.Ab81XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-AQ.Ab82XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-```
+Tambahkan blok ini ke file `opencode.json` (file dari Bagian 5). Setiap entri menghubungkan satu bahasa dengan **tool pemeriksanya**:
 
-Baris kosong dan baris yang diawali `#` diabaikan. Simpan. (Jangan pernah unggah `keys.env` ke mana pun.)
-
-#### Langkah 4 - Cek dulu, tanpa menjalankan apa pun
-
-```bash
-cd /c/Users/frans/opencode-failover
-node keys-pool-server.js --dry-run
-```
-
-Seharusnya muncul jumlah key yang terbaca dan perintah siap. Kalau muncul tulisan **"Tidak ada key valid"**, periksa kembali `keys.env` di Langkah 3.
-
-#### Langkah 5 - Jalankan proxy
-
-```bash
-node keys-pool-server.js
-```
-
-Biarkan jendela Git Bash ini tetap terbuka selama opencode dipakai. Seharusnya muncul:
-
-```
-keys-pool-server berjalan di http://127.0.0.1:8765
-```
-
-#### Langkah 6 - Cek kondisi proxy
-
-Buka **jendela Git Bash kedua**, lalu jalankan:
-
-```bash
-curl http://127.0.0.1:8765/status
-```
-
-Harus muncul daftar key dengan status `active`. Kalau ada key yang sedang menunggu, statusnya `cooldown` dengan hitungan mundur.
-
-#### Langkah 7 - Arahkan opencode ke proxy
-
-Buka file `opencode.json`. Tambahkan **1 provider** bernama `zen-proxy` ke blok `"providers"`:
-
-```json
-"zen-proxy": {
-  "npm": "@ai-sdk/openai-compatible",
-  "options": {
-    "baseURL": "http://127.0.0.1:8765/v1",
-    "apiKey": "sk-proxy-dummy"
+```jsonc
+"lsp": {
+  "typescript": {
+    "command": ["typescript-language-server", "--stdio"],
+    "extensions": [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"],
+    "disabled": false
   },
-  "models": { "big-pickle": { "name": "Big Pickle (via key-pool proxy)" } }
+  "go": {
+    "command": ["gopls"],
+    "extensions": [".go"],
+    "disabled": false
+  },
+  "python": {
+    "command": ["pyright", "--stdio"],
+    "extensions": [".py"],
+    "disabled": false
+  },
+  "html": {
+    "command": ["vscode-langservers-extracted", "--stdio"],
+    "extensions": [".html"],
+    "disabled": false
+  },
+  "css": {
+    "command": ["vscode-langservers-extracted", "--stdio"],
+    "extensions": [".css", ".scss", ".less"],
+    "disabled": false
+  },
+  "json": {
+    "command": ["vscode-langservers-extracted", "--stdio"],
+    "extensions": [".json", ".jsonc"],
+    "disabled": false
+  },
+  "sql": {
+    "command": ["sql-language-server", "up", "--method", "stdio"],
+    "extensions": [".sql"],
+    "disabled": false
+  }
 }
 ```
 
-Lalu ubah dua nilai ini:
+| Entri di config | Bahasa | Tool yang dipakai | Perlu diinstall |
+|---|---|---|---|
+| `typescript` | TypeScript / JavaScript | `typescript-language-server` | Bagian 6.1 |
+| `go` | Go | `gopls` | Bagian 6.1 |
+| `python` | Python | `pyright` | Bagian 6.1 |
+| `html` | HTML | `vscode-langservers-extracted` | Bagian 6.1 |
+| `css` | CSS / SCSS / LESS | `vscode-langservers-extracted` | Bagian 6.1 |
+| `json` | JSON / JSONC | `vscode-langservers-extracted` | Bagian 6.1 |
+| `sql` | SQL | `sql-language-server` | Bagian 6.1 |
 
-```json
-"provider": "zen-proxy",
-"model": "zen-proxy/big-pickle"
-```
+> **Catatan LSP:** berbeda dari MCP yang memakai `"enabled"`, entri LSP memakai **`"disabled"`** (nilai `false` = aktif, default; `true` = mati). Jadi jangan ubah jadi `"enabled"` di bagian LSP - opencode menolak field itu dan bisa bikin konfigurasi gagal start. `"disabled": false` di semua entri di atas sudah benar untuk "aktif".
 
-Key asli **tidak pernah masuk file ini** - key dipegang `keys.env` oleh proxy.
-
-#### Langkah 8 - Restart & verifikasi
-
-1. Tutup opencode, lalu buka lagi.
-2. Ajukan satu pertanyaan - kalau dijawab, berarti proxy sudah jalan.
-3. Saat kuota key #1 habis, cek `/status` (Langkah 6): key #1 berubah jadi `cooldown`, dan permintaan berikutnya otomatis memakai key #2.
-
-**Kalau ada masalah:**
-
-| Masalah | Solusi |
-|---|---|
-| `zen-proxy` tidak jalan | Pastikan Langkah 5 masih berjalan, dan model memakai `zen-proxy/big-pickle` di Langkah 7 |
-| Semua key `cooldown` | Tunggu hitungan mundur selesai, atau reset: `node keys-pool-server.js --reset-cooldowns` |
-
-**Alternatif (tanpa membangun ini):** `@razroo/opencode-model-fallback` untuk pindah model, atau `oswap`/`opencode-go-multi-auth` sebagai proxy siap pakai - bandingkan di README.
+> **Penting:** LSP baru bekerja kalau field `extensions` cocok dengan ekstensi file yang kamu buka - dan tool-nya sudah terinstall. Kalau satu bahasa tidak terpasang tool-nya, LSP untuk bahasa itu tetap "aktif" di config tapi tidak melakukan apa-apa sampai tool-nya ada.
 
 <p align="right"><a href="#top">⬆ Kembali ke atas</a></p>
 
 ---
 
-## 6. Verifikasi
+## 7. Verifikasi
 
-### 6.1 Cek MCP servers tersambung
+### 7.1 Cek failover
+
+```bash
+curl http://127.0.0.1:8765/status
+```
+
+Harus muncul daftar key + statusnya (`active` / `cooldown`). Kalau kosong, pastikan `node keys-pool-server.js` masih berjalan (Bagian 1 Langkah 5).
+
+### 7.2 Cek MCP servers tersambung
 
 ```powershell
 opencode mcp
@@ -563,7 +570,7 @@ opencode mcp
 
 Harus muncul daftar server beserta statusnya (connected/failed).
 
-### 6.2 Cek LSP berfungsi
+### 7.3 Cek LSP berfungsi (opsional)
 
 Buka project dengan file yang relevan:
 
@@ -580,10 +587,9 @@ Buka project dengan file yang relevan:
 
 Agent opencode seharusnya bisa melihat error/warning dari file tersebut (fitur LSP).
 
-### 6.3 Cek environment variable (Git Bash)
+### 7.4 Cek environment variable (Git Bash)
 
 ```bash
-echo $OPENCODE_API_KEY
 echo $GITHUB_PERSONAL_ACCESS_TOKEN
 echo $ANTHROPIC_API_KEY
 ```
@@ -592,10 +598,12 @@ echo $ANTHROPIC_API_KEY
 
 ---
 
-## 7. Troubleshooting Windows
+## 8. Troubleshooting Windows
 
 | Masalah | Solusi |
 |---|---|
+| `zen-proxy` tidak jalan | Pastikan `node keys-pool-server.js` sedang berjalan (`curl http://127.0.0.1:8765/status`), `keys.env` terisi, dan `"model"` memakai `zen-proxy/big-pickle`. Reset pending: `node keys-pool-server.js --reset-cooldowns` |
+| Semua key `cooldown` | Tunggu hitungan mundur selesai, atau reset: `node keys-pool-server.js --reset-cooldowns` |
 | `npx`/`uvx` tidak ditemukan | Pastikan Node.js & uv ada di PATH (`node -v`, `uv --version`). Jika tetap gagal, ganti command MCP menjadi: `["cmd", "/c", "npx", ...]` |
 | LSP `gopls`/`jdtls`/`rust` tidak aktif | LSP butuh `go`, `java`, `rust-analyzer`. Cek: `go version`, `java -version`, `rust-analyzer --version`. Restart terminal setelah install supaya PATH terbaca |
 | MCP server timeout | Tambah `"timeout": 30000` di entri server |
@@ -603,7 +611,6 @@ echo $ANTHROPIC_API_KEY
 | API key di Git Bash tidak terbaca opencode | Pastikan opencode dijalankan **dari Git Bash yang sama** setelah `source ~/.bashrc` |
 | Playwright error | Jalankan `npx playwright install chromium` |
 | MCP media (`video`/`artificer`) tidak aktif | Servenya `enabled: false` secara default - ubah jadi `true` lalu restart. Pastikan `ffmpeg -version` jalan; untuk `artificer` juga butuh `magick -version` dan `GEMINI_API_KEY` terisi |
-| Failover `zen-proxy` tidak jalan | Pastikan `node keys-pool-server.js` sedang berjalan (`curl http://127.0.0.1:8765/status`), `keys.env` terisi, dan `"model"` memakai `zen-proxy/big-pickle`. Reset pending: `node keys-pool-server.js --reset-cooldowns` |
 | opencode tidak mau start / config error | Jalankan opencode dengan `OPENCODE_DISABLE_PROJECT_CONFIG=1`, perbaiki config, lalu restart |
 | Browser Playwright tidak muncul jendelanya | Ini normal saat mode headless. Tambahkan argumen pada command menjadi `["npx", "-y", "@playwright/mcp@latest", "--headless"]` |
 

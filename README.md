@@ -1,84 +1,31 @@
 <a id="top"></a>
-# Setup Multiple Apikey Opencode: MCP, LSP
+# Failover Multi API key + MCP untuk Opencode (LSP opsional)
 
-Panduan menyiapkan **Opencode Agent** - AI agent yang bisa permudah berbagai pekerjaan harianmu - di Windows atau macOS.
+Project ini berfokus pada **dua hal utama** dan satu hal opsional:
 
-Dokumen ini ditulis dengan bahasa yang cukup sederhana. cukup ikuti langkahnya.
+| Prioritas | Bagian | Wajib? |
+|---|---|---|
+| 🔁 1 | **Failover multi API key** - konsep inti project ini. Saat kuota satu key habis, otomatis berganti ke key berikutnya tanpa pindah model. | **Paling wajib** |
+| 🧩 2 | **MCP** - tools tambahan untuk agent (browser, GitHub, database, media, dsb.). | Utama |
+| 🪶 3 | **LSP** - pemeriksa bahasa. Caranya tetap saya tunjukkan, tapi tidak wajib. | Opsional |
+
+Dokumen ini ditulis dengan bahasa sederhana. Cukup ikuti langkahnya.
 
 ---
 
 ## 📌 Isi dokumen ini
 
-- [Setup Multiple Apikey Opencode: MCP, LSP](#setup-multiple-apikey-opencode-mcp-lsp)
-  - [📌 Isi dokumen ini](#-isi-dokumen-ini)
-  - [Apa yang harus kamu siapkan?](#apa-yang-harus-kamu-siapkan)
-  - [Kasus umum penggunaan](#kasus-umum-penggunaan)
-  - [MCP untuk media (opsional)](#mcp-untuk-media-opsional)
-  - [🔁 Failover multi API key (OpenCode Zen)](#failover-multi-api-key-opencode-zen)
-  - [Pilih sistem operasi kamu](#pilih-sistem-operasi-kamu)
-    - [🪟 Windows](#-windows)
-    - [🍎 macOS](#-macos)
-  - [Ringkasan langkah](#ringkasan-langkah)
-  - [Gambaran singkat istilah](#gambaran-singkat-istilah)
+- [🔁 1. Failover multi API key (PRIORITAS)](#-1-failover-multi-api-key-prioritas)
+- [🧩 2. MCP (tools tambahan - utama)](#-2-mcp-tools-tambahan---utama)
+- [🪶 3. LSP (opsional - tetap ada caranya)](#-3-lsp-opsional---tetap-ada-caranya)
+- [🧰 4. Yang harus disiapkan (dasar)](#-4-yang-harus-disiapkan-dasar)
+- [Pilih sistem operasi kamu](#pilih-sistem-operasi-kamu)
+- [Ringkasan langkah](#ringkasan-langkah)
+- [Gambaran singkat istilah](#gambaran-singkat-istilah)
 
 ---
 
-## Apa yang harus kamu siapkan?
-
-Kamu menyiapkan **Opencode Agent CLI** agar bisa bekerja maksimal di komputermu dengan 3 hal:
-
-| Hal | Apa itu (versi sederhana) | Gimana rasanya di Opencode Agent |
-|---|---|---|
-| **Model gratis** | **Big Pickle (Opencode Zen)** - model resmi opencode, gratis (tetap butuh API key Zen) | langsung bisa dipakai setelah login OpenCode Zen |
-| **LSP** | "Pemeriksa" bahasa program - seperti *spell checker* di Word, tapi untuk kode | agent otomatis tahu kalau ada error/warning di file yang kamu buka |
-| **MCP** | "Tools tambahan" - memberi agent kemampuan baru (buka browser, akses GitHub, query database) | agent bisa menjalankan perintah dan mengakses data eksternal |
-| **API Key** | "Kartu akses" untuk layanan AI (Claude, OpenAI, Gemini, dsb) - hanya opsional | agent bisa memakai beberapa provider AI sekaligus |
-
-Tidak perlu paham semua sekarang - ikuti panduan per sistem operasi, dan semuanya akan terpasang.
-
-> 💡 **Mau coba MCP sesederhana mungkin?** Gunakan **`context7`** (cari dokumentasi library) - server-nya berjalan di **cloud**, jadi **tidak perlu install apa pun** dan tidak butuh API key sendiri. Cukup tempel konfigurasinya di `opencode.json` lalu **restart** - langsung aktif.
-
----
-
-## Kasus umum penggunaan
-
-Opencode Agent bukan hanya untuk menulis kode. Berkat **MCP** (tools tambahan), agent bisa melakukan banyak pekerjaan harian. Beberapa kasus yang umum:
-
-| Kasus | Contoh yang bisa kamu minta |
-|---|---|
-| 🧑‍💻 **Menulis & memperbaiki kode** | "Tambahkan halaman login, perbaiki bug di file `app.py`, lalu jalankan test-nya." |
-| 🔍 **Melihat isi data** | "Cari di semua file project mana yang memakai fungsi `getUser`, lalu rangkum." |
-| 🌐 **Membuka dan membaca website** | "Buka website ini, ambil isi artikelnya, dan ubah jadi poin-poin." |
-| 📄 **Mengelola file & folder** | "Pindahkan semua gambar dari folder A ke folder B, lalu rename jadi format tanggal." |
-| 🗄️ **Bertanya ke database** | "Hitung berapa pelanggan baru bulan ini dari database pelanggan." |
-| 🐙 **Bekerja dengan GitHub** | "Lihat daftar issue di repo ini, atau buat ringkasan pull request terakhir." |
-| 🌍 **Menerjemahkan / meringkas** | "Ringkas dokumen ini dalam 3 kalimat, lalu terjemahkan ke bahasa Inggris." |
-| 🧠 **Mengingat hal penting** | "Catat keputusan design hari ini supaya diingat untuk sesi berikutnya." |
-| 🎨 **Design & edit foto** | "Tolong buat desain thumbnail untuk video saya, dan bantu edit foto dengan tools yang tersedia." |
-| 🎬 **Edit video** | "Potong bagian intro video ini, tambahkan caption, lalu ekspor klipnya dalam format yang bisa dipakai." |
-| 🎵 **Edit musik / produksi musik** | "Tolong bantu atur level suara, potong bagian lagu ini, dan kasih saran mixing yang sederhana." |
-| 🛠️ **Membantu pekerjaan biasa** | "Jalankan perintah ini di terminal, lalu jelaskan hasilnya padaku dengan bahasa sederhana." |
-
-> Intinya: agent bisa membantu apa pun yang umumnya kamu kerjakan sendiri di komputer - selama itu bisa dijelaskan lewat kata-kata dan tools-nya terpasang.
-
-#### Kerja di agent apa pun
-
-MCP itu **protokol standar** - tools MCP bisa dipakai di agent mana pun (Opencode, Claude, Cursor, dsb.) selama agentnya mendukung MCP. Jadi tools yang kamu pasang sekarang tetap bisa dipakai kalau nanti pindah agent.
-
-#### 🎬 MCP untuk media (opsional)
-
-Design foto, edit video, dan produksi musik di tabel atas **butuh MCP media tambahan** - server ini mati secara default (`"enabled": false`), nyalakan kalau dibutuhkan:
-
-| Server MCP | Kemampuan | Butuh |
-|---|---|---|
-| **`mcp-video`** | Edit video & audio: potong, gabung, resize, subtitle, transkripsi, normalisasi suara | FFmpeg terinstall |
-| **`artificer`** | Generate/Edit gambar (Gemini/Imagen), video (Veo), musik (Lyria 3), edit gambar (ImageMagick) | FFmpeg + ImageMagick + API key Gemini |
-
-> Untuk detail cara install & tabel perbandingan lengkapnya, lihat **"Bagian 5"** di panduan sistem operasi kamu.
-
----
-
-## 🔁 Failover multi API key (OpenCode Zen)
+## 🔁 1. Failover multi API key (PRIORITAS)
 
 Di setup ini saya memakai **lebih dari satu API key untuk layanan yang sama** - contohnya beberapa akun **OpenCode Zen**, dan tiap akun dapat model gratis **Big Pickle** dengan kuota masing-masing. Masalahnya: kalau kuota satu key habis, opencode hanya mencoba terus dan mentok di error. Supaya kamu (dan tim saya) tidak perlu pindah key secara manual, saya sudah implementasikan konsep berikut: **key berpindah otomatis tanpa mengubah model** - dan sudah berjalan di setup ini.
 
@@ -160,7 +107,7 @@ opencode (TUI / opencode run / MCP / curl)
 
 Karena logika ini ada di level HTTP, satu konsep ini langsung berlaku untuk **TUI, `opencode run`, MCP, dan curl** sekaligus - tanpa menyentuh model yang dipakai.
 
-> ✅ **Status: sudah saya implementasikan.** Skrip `keys-pool-server.js` sudah jadi dan ada di repo ini - ikuti langkah instalasi di bawah (dan Bagian 5 di panduan sistem operasi kamu).
+> ✅ **Status: sudah saya implementasikan.** Skrip `keys-pool-server.js` sudah jadi dan ada di repo ini - ikuti Bagian 1 di panduan sistem operasi kamu untuk langkah nyatanya.
 
 ### Perbandingan pendekatan (yang saya pertimbangkan)
 
@@ -188,20 +135,23 @@ Supaya keputusan di atas jelas, ini catatan perbandingan saya:
 
 Cukup tambah **satu** custom provider (bukan satu per key):
 
-```json
-"providers": {
-  "zen-proxy": {
-    "npm": "@ai-sdk/openai-compatible",
-    "options": {
-      "baseURL": "http://127.0.0.1:8765/v1",
-      "apiKey": "sk-proxy-dummy"
-    },
-    "models": { "big-pickle": { "name": "Big Pickle (via key-pool proxy)" } }
-  }
+```jsonc
+{
+  "provider": {
+    "zen-proxy": {
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "http://127.0.0.1:8765/v1",
+        "apiKey": "sk-proxy-dummy"
+      },
+      "models": { "big-pickle": { "name": "Big Pickle (via key-pool proxy)" } }
+    }
+  },
+  "model": "zen-proxy/big-pickle"
 }
 ```
 
-Lalu ganti `"model"` menjadi `"zen-proxy/big-pickle"`. Key asli **tidak pernah masuk config** - proxy yang menyuntikkan key dari `keys.env`.
+Lalu pakai `"model": "zen-proxy/big-pickle"` sebagai model bawaan. Key asli **tidak pernah masuk config** - proxy yang menyuntikkan key dari `keys.env`.
 
 ### Kapan memakai yang mana (panduan buat tim)
 
@@ -213,7 +163,7 @@ Lalu ganti `"model"` menjadi `"zen-proxy/big-pickle"`. Key asli **tidak pernah m
 
 ### Setup langkah demi langkah (sudah berjalan)
 
-Urut dari **Langkah 1** sampai **Langkah 8** - detail perintah persis untuk Windows/macOS ada di **Bagian 5** panduan sistem operasi kamu:
+Urut dari **Langkah 1** sampai **Langkah 8** - detail perintah persis untuk Windows/macOS ada di **Bagian 1** panduan sistem operasi kamu:
 
 1. **Siapkan folder** `opencode-failover`.
 2. **Salin skrip** `keys-pool-server.js` dari repo ini ke folder itu.
@@ -221,12 +171,102 @@ Urut dari **Langkah 1** sampai **Langkah 8** - detail perintah persis untuk Wind
 4. **Cek dulu** (tanpa menjalankan apa pun): `node keys-pool-server.js --dry-run`
 5. **Jalankan proxy**: `node keys-pool-server.js` - biarkan terminal tetap terbuka.
 6. **Cek kondisi**: `curl http://127.0.0.1:8765/status`
-7. **Arahkan opencode**: tambah provider `zen-proxy` dan ubah `"model"` menjadi `"zen-proxy/big-pickle"`.
+7. **Arahkan opencode**: tambah provider `zen-proxy` dan pakai `"model": "zen-proxy/big-pickle"`.
 8. **Restart opencode**, lalu coba satu pertanyaan.
 
 > `keys.env` dan `cooldowns.json` sengaja tidak di-commit (sudah ada di `.gitignore`).
 
 **Cara memastikan failover bekerja:** saat kuota key #1 habis, periksa `/status` - key #1 berubah jadi `cooldown` (ada hitungan mundur) dan permintaan berikutnya otomatis memakai key #2.
+
+---
+
+## 🧩 2. MCP (tools tambahan - utama)
+
+Bagian utama kedua dari project ini. **MCP (Model Context Protocol)** memberi agent "tools tambahan" - seperti aplikasi baru yang bisa dipanggil. Dengan MCP, agent bisa buka browser, akses GitHub, query database, mengedit media, dan banyak lagi.
+
+### Kasus umum penggunaan
+
+Berkat MCP, agent bisa melakukan banyak pekerjaan harian:
+
+| Kasus | Contoh yang bisa kamu minta |
+|---|---|
+| 🧑‍💻 **Menulis & memperbaiki kode** | "Tambahkan halaman login, perbaiki bug di file `app.py`, lalu jalankan test-nya." |
+| 🔍 **Melihat isi data** | "Cari di semua file project mana yang memakai fungsi `getUser`, lalu rangkum." |
+| 🌐 **Membuka dan membaca website** | "Buka website ini, ambil isi artikelnya, dan ubah jadi poin-poin." |
+| 📄 **Mengelola file & folder** | "Pindahkan semua gambar dari folder A ke folder B, lalu rename jadi format tanggal." |
+| 🗄️ **Bertanya ke database** | "Hitung berapa pelanggan baru bulan ini dari database pelanggan." |
+| 🐙 **Bekerja dengan GitHub** | "Lihat daftar issue di repo ini, atau buat ringkasan pull request terakhir." |
+| 🌍 **Menerjemahkan / meringkas** | "Ringkas dokumen ini dalam 3 kalimat, lalu terjemahkan ke bahasa Inggris." |
+| 🧠 **Mengingat hal penting** | "Catat keputusan design hari ini supaya diingat untuk sesi berikutnya." |
+| 🎨 **Design & edit foto** | "Tolong buat desain thumbnail untuk video saya, dan bantu edit foto dengan tools yang tersedia." |
+| 🎬 **Edit video** | "Potong bagian intro video ini, tambahkan caption, lalu ekspor klipnya dalam format yang bisa dipakai." |
+| 🎵 **Edit musik / produksi musik** | "Tolong bantu atur level suara, potong bagian lagu ini, dan kasih saran mixing yang sederhana." |
+| 🛠️ **Membantu pekerjaan biasa** | "Jalankan perintah ini di terminal, lalu jelaskan hasilnya padaku dengan bahasa sederhana." |
+
+> Intinya: agent bisa membantu apa pun yang umumnya kamu kerjakan sendiri di komputer - selama itu bisa dijelaskan lewat kata-kata dan tools-nya terpasang.
+
+### Kerja di agent apa pun
+
+MCP itu **protokol standar** - tools MCP bisa dipakai di agent mana pun (Opencode, Claude, Cursor, dsb.) selama agentnya mendukung MCP. Jadi tools yang kamu pasang sekarang tetap bisa dipakai kalau nanti pindah agent.
+
+### Yang ada di config project ini
+
+Semua server MCP ini sudah masuk di config (Bagian 5 panduan sistem operasi kamu):
+
+| Server MCP | Tipe | Status default | Butuh |
+|---|---|---|---|
+| **`context7`** ⭐ | remote | aktif | tidak ada (gratis) |
+| `github` | remote | aktif | GitHub token |
+| `filesystem`, `memory` | local | aktif | tidak ada |
+| `playwright` | local | aktif | `npx playwright install chromium` |
+| `git`, `fetch` | local | aktif | `uv` |
+| `postgres`, `sqlite` | local | mati | server database |
+| `video`, `artificer` | local | mati | FFmpeg, ImageMagick, API key Gemini |
+
+`context7` paling gampang dicoba - server-nya berjalan di **cloud**, jadi **tidak perlu install apa pun** dan tidak butuh API key. Cukup tempel konfigurasinya di `opencode.json` lalu restart.
+
+### 🎬 MCP untuk media (opsional)
+
+Design foto, edit video, dan produksi musik di tabel atas **butuh MCP media tambahan** - server ini mati secara default (`"enabled": false`), nyalakan kalau dibutuhkan:
+
+| Server MCP | Kemampuan | Butuh |
+|---|---|---|
+| **`mcp-video`** | Edit video & audio: potong, gabung, resize, subtitle, transkripsi, normalisasi suara | FFmpeg terinstall |
+| **`artificer`** | Generate/Edit gambar (Gemini/Imagen), video (Veo), musik (Lyria 3), edit gambar (ImageMagick) | FFmpeg + ImageMagick + API key Gemini |
+
+Perbandingan lengkap semua server media ada di **Bagian 5** panduan sistem operasi kamu.
+
+---
+
+## 🪶 3. LSP (opsional - tetap ada caranya)
+
+**LSP (Language Server Protocol)** adalah "pemeriksa" bahasa program - seperti *spell checker* di Word, tapi untuk kode. Saat kamu membuka file, agent otomatis tahu kalau ada error/warning.
+
+Ini **opsional**: kalau kamu tidak menulis bahasa tertentu, tidak perlu pasang apa-apa. Tapi kalau mau, caranya lengkap di **Bagian 6** panduan sistem operasi kamu. Ringkasnya:
+
+| Bahasa | Tool LSP | Perlu install |
+|---|---|---|
+| TypeScript / JavaScript | `typescript-language-server` | `npm install -g typescript-language-server` |
+| Go | `gopls` | install Go |
+| Python | `pyright` | `npm install -g pyright` |
+| HTML, CSS, JSON | `vscode-langservers-extracted` | `npm install -g vscode-langservers-extracted` |
+| SQL | `sql-language-server` | `npm install -g sql-language-server` |
+| C/C++, Kotlin, YAML | `clangd`, `kotlin-ls`, `yaml-ls` | diinstall otomatis oleh opencode |
+
+---
+
+## 🧰 4. Yang harus disiapkan (dasar)
+
+Dasar-dasar yang perlu kamu kenal dulu:
+
+| Hal | Apa itu (versi sederhana) | Gimana rasanya di Opencode Agent |
+|---|---|---|
+| **Model gratis** | **Big Pickle (Opencode Zen)** - model resmi opencode, gratis (tetap butuh API key Zen) | langsung bisa dipakai setelah ada key Zen |
+| **MCP** | "Tools tambahan" - memberi agent kemampuan baru (buka browser, akses GitHub, query database) | agent bisa menjalankan perintah dan mengakses data eksternal |
+| **LSP** | "Pemeriksa" bahasa program - seperti *spell checker* di Word, tapi untuk kode | agent otomatis tahu kalau ada error/warning di file yang kamu buka |
+| **API Key** | "Kartu akses" untuk layanan AI (Claude, OpenAI, Gemini, dsb.) | agent bisa memakai beberapa provider AI sekaligus |
+
+Untuk failover, kamu butuh **Node.js ≥ 20** dan **opencode (CLI)**. Tidak perlu paham semua sekarang - ikuti panduan per sistem operasi di bawah.
 
 ---
 
@@ -238,13 +278,13 @@ Pilih salah satu di bawah ini. Detail langkahnya **sudah dipisah** agar tidak me
 
 📄 → **[Buka panduan lengkap Setup Windows](docs/windows/SETUP.md)**
 
-Berisi: install tools, set API key, set token GitHub, buat file konfigurasi, verifikasi, dan perbaikan jika ada masalah.
+Berisi: **Bagian 1 = Failover multi API key (prioritas)**, lalu MCP (Bagian 5), LSP opsional (Bagian 6), verifikasi, dan perbaikan jika ada masalah.
 
 ### 🍎 macOS
 
 📄 → **[Buka panduan lengkap Setup macOS](docs/mac/SETUP.md)**
 
-Berisi: install tools, set API key, set token GitHub, buat file konfigurasi, verifikasi, dan perbaikan jika ada masalah.
+Berisi: **Bagian 1 = Failover multi API key (prioritas)**, lalu MCP (Bagian 5), LSP opsional (Bagian 6), verifikasi, dan perbaikan jika ada masalah.
 
 > Perlu diingat: **isi konfigurasi kedua sistem sama.** Yang berbeda hanya cara install tools-nya dan cara mengatur environment variable-nya. Jadi sekali paham, dua-duanya bisa.
 
@@ -255,12 +295,11 @@ Berisi: install tools, set API key, set token GitHub, buat file konfigurasi, ver
 Baik Windows maupun Mac, alurnya sama:
 
 1. **Install tools** - seperti memasang perkakas yang dibutuhkan (Node.js, Git, dll.).
-2. **Login OpenCode Zen** - daftarkan API key model gratis **Big Pickle (Opencode Zen)**.
-3. **Set API key lain** - *opsional*, hanya jika ingin menambah provider berbayar.
-4. **Set GitHub token** - *opsional*, hanya jika ingin akses GitHub dari agent.
-5. **Salin file konfigurasi** - satu file `opencode.json` yang mengaktifkan semua fitur.
-6. **Restart opencode** - agar konfigurasi terbaca.
-7. **Verifikasi** - cek semua sudah menyala.
+2. **Pasang failover multi API key** (prioritas) - folder `opencode-failover`, isi `keys.env`, jalankan proxy, arahkan opencode ke `zen-proxy`.
+3. **Tempel config MCP** - satu file `opencode.json` berisi MCP (dan provider `zen-proxy`).
+4. **LSP (opsional)** - pasang bahasa yang kamu tulis saja.
+5. **Restart opencode** - agar konfigurasi terbaca.
+6. **Verifikasi** - cek failover, MCP, dan (opsional) LSP sudah menyala.
 
 Total waktu: sekitar **15-30 menit** per komputer.
 
@@ -275,7 +314,7 @@ Penasaran apa maksud kata-kata yang sering muncul? Ini versi ramah-nya:
 - **AI Agent** - program yang memakai AI untuk bekerja sendiri menyelesaikan tugas, menggunakan tool seperti membuka file, menjalankan perintah, sampai mengedit kode. Contoh sehari-hari: menulis kode, mencari info dari file, membuka website, meringkas dokumen, dan mengelola file.
 - **API Key** - kata sandi khusus agar aplikasi boleh memakai layanan AI tertentu (contoh: Claude dari Anthropic, ChatGPT dari OpenAI, Gemini dari Google).
 - **Environment variable** - "kotak catatan" sistem operasi tempat menyimpan pengaturan (di Windows: System Properties; di macOS: file `~/.zshrc`).
-- **opencode.json** - file pengaturan utama Opencode Agent. Satu file ini mengatur semua: model, LSP, dan MCP.
+- **opencode.json** - file pengaturan utama Opencode Agent. Satu file ini mengatur semua: model, MCP, dan (opsional) LSP.
 
 Jika ada langkah yang terasa tersangkut, lihat bagian **"Troubleshooting"** di dokumen masing-masing sistem operasi.
 
