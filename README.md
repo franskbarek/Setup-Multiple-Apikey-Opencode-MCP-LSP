@@ -94,19 +94,71 @@ Keputusan saya: untuk kasus seperti ini yang tepat bukan plugin, melainkan **key
 
 ### Konsep yang saya pilih: key-pool proxy lokal
 
+Satu proxy kecil yang saya jalankan di komputer, duduk di antara opencode dan server Zen. opencode hanya bicara ke proxy; proxy yang memegang daftar key dan memilih key mana yang dipakai setiap request.
+
 ```
 opencode (TUI / opencode run / MCP / curl)
         │  baseURL → http://127.0.0.1:8765/v1
         ▼
    [ keys-pool-server ]       ← skrip Node lokal (rencana)
-        │  •  baca file keys.env (satu key per baris, atas = prioritas)
-        │  •  pilih key yang tidak sedang pending, teruskan ke upstream
-        │  •  lihat respons asli: 429/402 kuota → pending key itu,
-        │     coba key berikutnya; 4xx non-kuota → diteruskan apa adanya
-        │  •  semua key pending → balas 429 + pesan jelas ke opencode
         ▼
    https://opencode.ai/zen/v1
 ```
+
+#### Cara kerja (flowchart)
+
+```
+                request dari opencode masuk
+                           │
+                           ▼
+            pilih key teratas yang TIDAK pending
+                           │
+                           ▼
+        teruskan request ke https://opencode.ai/zen/v1
+                           │
+               ┌───────────┴───────────┐
+               ▼                       ▼
+       respons 429/402 kuota?      respons lain?
+               │                       │
+              ya                       │
+               │                       ├─────► 4xx non-kuota
+               ▼                       │       → teruskan apa adanya
+      tandai key = PENDING             │
+      (durasi pakai Retry-After)       │
+               │                       │
+               ▼                       │
+   masih ada key lain yang aktif?      │
+       ┌──────┴──────┐                 │
+       ▼             ▼                 │
+      ya           tidak               │
+       │             │                 │
+       ▼             │                 │
+   kembali ke        │                 │
+   pilih key         │                 │
+   berikutnya        │                 │
+       └──────┬──────┘                 │
+              ▼                        ▼
+   semua key pending?           respons OK / SSE stream
+      ┌──────┴──────┐           diteruskan ke opencode
+      ▼             ▼
+     ya           tidak
+      │             │
+      ▼             └────────────► ulangi pemilihan key
+   balas 429 + pesan
+   mudah dibaca ke opencode
+```
+
+#### Penjelasan langkah demi langkah
+
+1. **Request masuk** — opencode mengirim permintaan ke proxy (misal kita mulai dari key #1, key paling atas di `keys.env`).
+2. **Teruskan** — proxy meneruskan request itu ke `https://opencode.ai/zen/v1` memakai key #1.
+3. **Respons normal** — kalau key #1 sehat, jawaban (termasuk SSE yang mengalir token demi token) diteruskan langsung ke opencode. Selesai.
+4. **Kuota habis** — kalau upstream membalas `429`/`402` (kuota key #1 habis), proxy menandai key #1 sebagai *pending* selama durasi tertentu (pakai `Retry-After` kalau dikirim server).
+5. **Ganti key** — karena key #1 pending, proxy otomatis mencoba key berikutnya di daftar (key #2, #3, dst.).
+6. **Semua pending** — kalau semua key sedang pending, proxy balas `429` + pesan yang mudah dibaca ke opencode, misal *"Semua key Zen sedang dalam cooldown, coba lagi ~2 menit lagi."*
+7. **Pulih otomatis** — setelah durasi pending habis, key kembali aktif dan dipakai lagi. Karena state disimpan di `cooldowns.json`, cooldown ini **tetap berlaku walau komputer di-restart**.
+
+Karena logika ini ada di level HTTP, satu konsep ini langsung berlaku untuk **TUI, `opencode run`, MCP, dan curl** sekaligus — tanpa menyentuh model yang dipakai.
 
 > ⚠️ **Status dari saya:** ini masih **konsep + spesifikasi**. Skrip `keys-pool-server.js` **belum saya buat** - ini rencana yang sedang berjalan (lihat Roadmap di bawah).
 

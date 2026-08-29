@@ -433,6 +433,24 @@ Semua server di tabel ini bekerja di **agent apa pun** (Opencode, Claude, Cursor
 
 **Konsep yang saya pilih:** arahkan opencode ke **proxy lokal** yang memegang daftar key (file `keys.env`) lalu meneruskan ke `https://opencode.ai/zen/v1`. Saat upstream membalas `429`/`402` kuota, proxy menandai key itu *pending* dan memakai key berikutnya - berlaku untuk TUI, `opencode run`, MCP, dan curl sekaligus.
 
+**Alurnya:**
+
+```
+ request dari opencode
+      → pilih key teratas yang TIDAK pending
+      → teruskan ke https://opencode.ai/zen/v1
+      → respons 429/402?   ── ya ──► tandai key PENDING (pakai Retry-After)
+      → respons normal?        │        lalu coba key berikutnya
+           └─► teruskan ke     │
+               opencode        ▼
+                 (SSE)    semua key pending? ── tidak ──► ulangi
+                 ▲               │
+                 │              ya ▼
+                 └──────── balas 429 + pesan jelas ke opencode
+```
+
+**Penjelasan singkat:** satu key sehat → request diteruskan langsung (termasuk token streaming). Kuota key habis (`429`/`402`) → key itu menunggu dulu, proxy otomatis pakai key berikutnya. Semua key menunggu → proxy bilang ke opencode *"semua key sedang cooldown"*. Setelah jeda habis, key aktif lagi; state disimpan di `cooldowns.json` jadi awet walau komputer di-restart.
+
 > ⚠️ **Status dari saya:** ini masih **rencana** - skrip `keys-pool-server.js` **belum saya buat**. Bagian ini saya tulis untuk menyiapkan konsep & konfigurasinya. Penjelasan lengkap + perbandingan ada di bagian "🔁 Failover multi API key (OpenCode Zen)" di [README utama](../../..#failover-multi-api-key-opencode-zen).
 
 **Rencana isi `keys-pool-server.js`** (Node, tanpa dependency, saya taruh di samping `run-with-failover.sh`):
