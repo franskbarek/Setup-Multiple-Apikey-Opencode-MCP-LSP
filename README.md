@@ -150,15 +150,15 @@ opencode (TUI / opencode run / MCP / curl)
 
 #### Penjelasan langkah demi langkah
 
-1. **Request masuk** — opencode mengirim permintaan ke proxy (misal kita mulai dari key #1, key paling atas di `keys.env`).
-2. **Teruskan** — proxy meneruskan request itu ke `https://opencode.ai/zen/v1` memakai key #1.
-3. **Respons normal** — kalau key #1 sehat, jawaban (termasuk SSE yang mengalir token demi token) diteruskan langsung ke opencode. Selesai.
-4. **Kuota habis** — kalau upstream membalas `429`/`402` (kuota key #1 habis), proxy menandai key #1 sebagai *pending* selama durasi tertentu (pakai `Retry-After` kalau dikirim server).
-5. **Ganti key** — karena key #1 pending, proxy otomatis mencoba key berikutnya di daftar (key #2, #3, dst.).
-6. **Semua pending** — kalau semua key sedang pending, proxy balas `429` + pesan yang mudah dibaca ke opencode, misal *"Semua key Zen sedang dalam cooldown, coba lagi ~2 menit lagi."*
-7. **Pulih otomatis** — setelah durasi pending habis, key kembali aktif dan dipakai lagi. Karena state disimpan di `cooldowns.json`, cooldown ini **tetap berlaku walau komputer di-restart**.
+1. **Request masuk** - opencode mengirim permintaan ke proxy (misal kita mulai dari key #1, key paling atas di `keys.env`).
+2. **Teruskan** - proxy meneruskan request itu ke `https://opencode.ai/zen/v1` memakai key #1.
+3. **Respons normal** - kalau key #1 sehat, jawaban (termasuk SSE yang mengalir token demi token) diteruskan langsung ke opencode. Selesai.
+4. **Kuota habis** - kalau upstream membalas `429`/`402` (kuota key #1 habis), proxy menandai key #1 sebagai *pending* selama durasi tertentu (pakai `Retry-After` kalau dikirim server).
+5. **Ganti key** - karena key #1 pending, proxy otomatis mencoba key berikutnya di daftar (key #2, #3, dst.).
+6. **Semua pending** - kalau semua key sedang pending, proxy balas `429` + pesan yang mudah dibaca ke opencode, misal *"Semua key Zen sedang dalam cooldown, coba lagi ~2 menit lagi."*
+7. **Pulih otomatis** - setelah durasi pending habis, key kembali aktif dan dipakai lagi. Karena state disimpan di `cooldowns.json`, cooldown ini **tetap berlaku walau komputer di-restart**.
 
-Karena logika ini ada di level HTTP, satu konsep ini langsung berlaku untuk **TUI, `opencode run`, MCP, dan curl** sekaligus — tanpa menyentuh model yang dipakai.
+Karena logika ini ada di level HTTP, satu konsep ini langsung berlaku untuk **TUI, `opencode run`, MCP, dan curl** sekaligus - tanpa menyentuh model yang dipakai.
 
 > ⚠️ **Status dari saya:** ini masih **konsep + spesifikasi**. Skrip `keys-pool-server.js` **belum saya buat** - ini rencana yang sedang berjalan (lihat Roadmap di bawah).
 
@@ -255,7 +255,7 @@ Baik Windows maupun Mac, alurnya sama:
 6. **Restart opencode** - agar konfigurasi terbaca.
 7. **Verifikasi** - cek semua sudah menyala.
 
-Total waktu: sekitar **15–30 menit** per komputer.
+Total waktu: sekitar **15-30 menit** per komputer.
 
 ---
 
