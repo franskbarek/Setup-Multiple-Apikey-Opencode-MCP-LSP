@@ -70,8 +70,8 @@ Salin file `keys-pool-server.js` dari folder paling atas repo ini ke folder di L
 Buat file `keys.env` di folder yang sama (folder `opencode-failover`). Isi **satu key per baris**, baris paling atas = prioritas:
 
 ```
-AQ.Ab81XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-AQ.Ab82XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+sk-Romxxx....
+sk-Romxxx....
 ```
 
 Baris kosong dan baris yang diawali `#` diabaikan. Simpan. (Jangan pernah unggah `keys.env` ke mana pun.)
