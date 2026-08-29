@@ -213,17 +213,20 @@ Lalu ganti `"model"` menjadi `"zen-proxy/big-pickle"`. Key asli **tidak pernah m
 
 ### Setup langkah demi langkah (sudah berjalan)
 
-1. Salin `keys-pool-server.js` dari repo ini ke folder `opencode-failover`.
-2. Isi `keys.env` di folder yang sama - satu key per baris, baris atas = prioritas (baris diawali `#` diabaikan).
-3. Cek konfigurasi dulu: `node keys-pool-server.js --dry-run`
-4. Jalankan proxy di jendela terminal terpisah: `node keys-pool-server.js`
-5. Cek: `curl http://127.0.0.1:8765/status` - harus muncul daftar key + statusnya.
-6. Pasang provider `zen-proxy` di `opencode.json` (snippet di atas) dan set `"model"` menjadi `"zen-proxy/big-pickle"`.
-7. Restart opencode - mulai seperti biasa.
+Urut dari **Langkah 1** sampai **Langkah 8** - detail perintah persis untuk Windows/macOS ada di **Bagian 5** panduan sistem operasi kamu:
+
+1. **Siapkan folder** `opencode-failover`.
+2. **Salin skrip** `keys-pool-server.js` dari repo ini ke folder itu.
+3. **Isi `keys.env`** - satu key per baris, baris paling atas = prioritas.
+4. **Cek dulu** (tanpa menjalankan apa pun): `node keys-pool-server.js --dry-run`
+5. **Jalankan proxy**: `node keys-pool-server.js` - biarkan terminal tetap terbuka.
+6. **Cek kondisi**: `curl http://127.0.0.1:8765/status`
+7. **Arahkan opencode**: tambah provider `zen-proxy` dan ubah `"model"` menjadi `"zen-proxy/big-pickle"`.
+8. **Restart opencode**, lalu coba satu pertanyaan.
 
 > `keys.env` dan `cooldowns.json` sengaja tidak di-commit (sudah ada di `.gitignore`).
 
-**Verifikasi cepat:** saat salah satu key kuotanya habis, periksa `/status` - key itu berpindah ke status `cooldown` (ada hitungan mundurnya) dan request otomatis memakai key berikutnya.
+**Cara memastikan failover bekerja:** saat kuota key #1 habis, periksa `/status` - key #1 berubah jadi `cooldown` (ada hitungan mundur) dan permintaan berikutnya otomatis memakai key #2.
 
 ---
 

@@ -453,53 +453,100 @@ Semua server di tabel ini bekerja di **agent apa pun** (Opencode, Claude, Cursor
 
 > ✅ **Status: sudah saya implementasikan.** Skrip `keys-pool-server.js` tersedia di [repo utama](../../keys-pool-server.js) - salin ke folder `opencode-failover`, isi `keys.env`, lalu jalankan. Penjelasan lengkap + perbandingan ada di bagian "🔁 Failover multi API key (OpenCode Zen)" di [README utama](../../..#failover-multi-api-key-opencode-zen).
 
-**Isi `keys-pool-server.js`** (Node, tanpa dependency, berjalan dari folder `opencode-failover`):
+**Cara pasang - ikuti urut dari Langkah 1 sampai Langkah 8:**
 
-| Aspek | Isi / perilaku |
-|---|---|
-| Alamat | `127.0.0.1:8765` saja - tidak terbuka ke jaringan |
-| Key | baca `keys.env` di folder sama (satu per baris, atas = prioritas) |
-| State | `cooldowns.json` - pending bertahan antar restart |
-| Deteksi | respons HTTP **asli** dari upstream: `429`/`402` kuota → pending key itu (pakai `Retry-After`), coba key berikutnya; 4xx non-kuota → diteruskan apa adanya |
-| Semua key pending | balas `429` + pesan jelas ke opencode |
-| Endpoint | `/health` dan `/status` |
-| Streaming | SSE `chat/completions` diteruskan byte-by-byte |
-| Opsi CLI | `--port`, `--keys-file`, `--dry-run`, `--reset-cooldowns` |
+#### Langkah 1 - Siapkan folder
 
-**Konfigurasi opencode yang saya siapkan** (tambah satu provider saja, bukan satu per key):
+Buat folder tempat proxy tinggal (tidak masalah kalau sudah ada):
+
+```bash
+mkdir -p ~/opencode-failover
+```
+
+#### Langkah 2 - Salin skrip
+
+Salin file `keys-pool-server.js` dari folder paling atas repo ini ke folder di Langkah 1. Boleh lewat Finder: copy file lalu paste ke folder `opencode-failover` di home.
+
+#### Langkah 3 - Isi daftar key
+
+Buat file `keys.env` di folder yang sama (folder `opencode-failover`). Isi **satu key per baris**, baris paling atas = prioritas:
+
+```
+AQ.Ab81XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+AQ.Ab82XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+```
+
+Baris kosong dan baris yang diawali `#` diabaikan. Simpan. (Jangan pernah unggah `keys.env` ke mana pun.)
+
+#### Langkah 4 - Cek dulu, tanpa menjalankan apa pun
+
+```bash
+cd ~/opencode-failover
+node keys-pool-server.js --dry-run
+```
+
+Seharusnya muncul jumlah key yang terbaca dan perintah siap. Kalau muncul tulisan **"Tidak ada key valid"**, periksa kembali `keys.env` di Langkah 3.
+
+#### Langkah 5 - Jalankan proxy
+
+```bash
+node keys-pool-server.js
+```
+
+Biarkan jendela Terminal ini tetap terbuka selama opencode dipakai. Seharusnya muncul:
+
+```
+keys-pool-server berjalan di http://127.0.0.1:8765
+```
+
+#### Langkah 6 - Cek kondisi proxy
+
+Buka **jendela Terminal kedua**, lalu jalankan:
+
+```bash
+curl http://127.0.0.1:8765/status
+```
+
+Harus muncul daftar key dengan status `active`. Kalau ada key yang sedang menunggu, statusnya `cooldown` dengan hitungan mundur.
+
+#### Langkah 7 - Arahkan opencode ke proxy
+
+Buka file `opencode.json`. Tambahkan **1 provider** bernama `zen-proxy` ke blok `"providers"`:
 
 ```json
-"providers": {
-  "zen-proxy": {
-    "npm": "@ai-sdk/openai-compatible",
-    "options": {
-      "baseURL": "http://127.0.0.1:8765/v1",
-      "apiKey": "sk-proxy-dummy"
-    },
-    "models": { "big-pickle": { "name": "Big Pickle (via key-pool proxy)" } }
-  }
+"zen-proxy": {
+  "npm": "@ai-sdk/openai-compatible",
+  "options": {
+    "baseURL": "http://127.0.0.1:8765/v1",
+    "apiKey": "sk-proxy-dummy"
+  },
+  "models": { "big-pickle": { "name": "Big Pickle (via key-pool proxy)" } }
 }
 ```
 
-lalu ubah `"model"` menjadi `"zen-proxy/big-pickle"`. Key asli **tidak pernah masuk config** - proxy menyuntikkan key dari `keys.env`.
+Lalu ubah dua nilai ini:
 
-**Cara memasang & memakai (langkah nyata):**
-
-1. Salin `keys-pool-server.js` dari [repo utama](../../keys-pool-server.js) ke folder `opencode-failover`.
-2. Isi `keys.env` - satu key per baris, baris atas = prioritas (baris diawali `#` diabaikan).
-3. Cek dulu: `node keys-pool-server.js --dry-run`
-4. Jalankan proxy di jendela Terminal terpisah:
-
-```bash
-cd opencode-failover
-node keys-pool-server.js
-curl http://127.0.0.1:8765/status   # cek keadaan tiap key & cooldown
+```json
+"provider": "zen-proxy",
+"model": "zen-proxy/big-pickle"
 ```
 
-5. Di `opencode.json`, pastikan provider `zen-proxy` aktif (snippet di atas) dan `"model"` = `"zen-proxy/big-pickle"`.
-6. Restart opencode, lalu mulai seperti biasa.
+Key asli **tidak pernah masuk file ini** - key dipegang `keys.env` oleh proxy.
 
-**Alternatif tanpa bikin sendiri:** `@razroo/opencode-model-fallback` (rotasi model) atau `opencode-go-multi-auth`/`oswap` (proxy siap pakai) - bandingkan di README.
+#### Langkah 8 - Restart & verifikasi
+
+1. Tutup opencode, lalu buka lagi.
+2. Ajukan satu pertanyaan - kalau dijawab, berarti proxy sudah jalan.
+3. Saat kuota key #1 habis, cek `/status` (Langkah 6): key #1 berubah jadi `cooldown`, dan permintaan berikutnya otomatis memakai key #2.
+
+**Kalau ada masalah:**
+
+| Masalah | Solusi |
+|---|---|
+| `zen-proxy` tidak jalan | Pastikan Langkah 5 masih berjalan, dan model memakai `zen-proxy/big-pickle` di Langkah 7 |
+| Semua key `cooldown` | Tunggu hitungan mundur selesai, atau reset: `node keys-pool-server.js --reset-cooldowns` |
+
+**Alternatif (tanpa membangun ini):** `@razroo/opencode-model-fallback` untuk pindah model, atau `oswap`/`opencode-go-multi-auth` sebagai proxy siap pakai - bandingkan di README.
 
 <p align="right"><a href="#top">⬆ Kembali ke atas</a></p>
 
