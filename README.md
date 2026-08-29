@@ -15,7 +15,7 @@ Dokumen ini ditulis dengan bahasa sederhana. Cukup ikuti langkahnya.
 
 ## 📌 Isi dokumen ini
 
-- [🔁 1. Failover multi API key (PRIORITAS)](#-1-failover-multi-api-key-prioritas)
+- [🔁 1. Failover multi API key (prioritas)](#-1-failover-multi-api-key-prioritas)
 - [🧩 2. MCP (tools tambahan - utama)](#-2-mcp-tools-tambahan---utama)
 - [🪶 3. LSP (opsional - tetap ada caranya)](#-3-lsp-opsional---tetap-ada-caranya)
 - [🧰 4. Yang harus disiapkan (dasar)](#-4-yang-harus-disiapkan-dasar)
@@ -25,7 +25,7 @@ Dokumen ini ditulis dengan bahasa sederhana. Cukup ikuti langkahnya.
 
 ---
 
-## 🔁 1. Failover multi API key (PRIORITAS)
+## 🔁 1. Failover multi API key (prioritas)
 
 Di setup ini saya memakai **lebih dari satu API key untuk layanan yang sama** - contohnya beberapa akun **OpenCode Zen**, dan tiap akun dapat model gratis **Big Pickle** dengan kuota masing-masing. Masalahnya: kalau kuota satu key habis, opencode hanya mencoba terus dan mentok di error. Supaya kamu (dan tim saya) tidak perlu pindah key secara manual, saya sudah implementasikan konsep berikut: **key berpindah otomatis tanpa mengubah model** - dan sudah berjalan di setup ini.
 

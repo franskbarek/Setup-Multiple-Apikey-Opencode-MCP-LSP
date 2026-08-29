@@ -2,7 +2,7 @@
 # Setup opencode di Windows - Detail Lengkap
 
 > 🔺 **Prioritas dokumen ini:**
-> 1. **🔁 Failover multi API key (Bagian 1) = PRIORITAS** - konsep inti project ini. Banyak key otomatis berganti saat kuota habis, tanpa pindah model.
+> 1. **🔁 Failover multi API key (Bagian 1) = prioritas** - konsep inti project ini. Banyak key otomatis berganti saat kuota habis, tanpa pindah model.
 > 2. **🧩 MCP (Bagian 5) = utama** - tools tambahan untuk agent (browser, GitHub, database, media, dsb.).
 > 3. **🪶 LSP (Bagian 6) = opsional** - pemeriksa bahasa. Tetap ada caranya.
 
@@ -16,7 +16,7 @@ Jika ini pertama kali membaca, mulai dari [README utama](../..) untuk paham kons
 
 ## Daftar Isi
 
-- [1. Failover multi API key (PRIORITAS)](#1-failover-multi-api-key-prioritas)
+- [1. Failover multi API key (prioritas)](#1-failover-multi-api-key-prioritas)
 - [2. Yang Perlu Disiapkan](#2-yang-perlu-disiapkan)
 - [3. Install Tools di Windows](#3-install-tools-di-windows)
 - [4. Mengatur API Key & GitHub Token (opsional)](#4-mengatur-api-key--github-token-opsional)
@@ -27,7 +27,7 @@ Jika ini pertama kali membaca, mulai dari [README utama](../..) untuk paham kons
 
 ---
 
-## 1. Failover multi API key (PRIORITAS)
+## 1. Failover multi API key (prioritas)
 
 **Ini bagian paling penting dari project ini.** Konsepnya: beberapa API key untuk layanan yang sama (misal beberapa akun **OpenCode Zen**, tiap akun dapat model gratis **Big Pickle** dengan kuota masing-masing) dipakai **bergantian otomatis**. Kalau kuota satu key habis, key berikutnya langsung dipakai - kamu tidak perlu pindah key manual.
 
