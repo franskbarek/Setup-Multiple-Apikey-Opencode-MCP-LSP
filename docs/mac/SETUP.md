@@ -62,6 +62,13 @@ Semua di bawah ini **boleh dilewati dulu**. Pasang hanya kalau butuh:
 
 **MCP browser (Playwright):** hanya jika kamu ingin opencode bisa membuka / berinteraksi dengan browser.
 
+**MCP media (gambar, video, musik):** hanya jika kamu ingin agent bisa *mengedit* atau *membuat* media. Butuh FFmpeg (wajib untuk semua MCP media); ImageMagick hanya jika memakai `artificer`.
+
+| Tool | Fungsinya | Cara cek |
+|---|---|---|
+| [FFmpeg](https://ffmpeg.org) | Mesin processing video & audio (trim, gabung, resize, subtitle, dll.) | `ffmpeg -version` |
+| [ImageMagick](https://imagemagick.org) | Mesin processing gambar (resize, composite, effects) - khusus `artificer` | `magick -version` |
+
 > **Catatan:** Xcode Command Line Tools (berisi `clang`/`clangd` untuk C/C++) biasanya sudah ada atau muncul otomatis saat pertama menjalankan `xcode-select --install`.
 
 <p align="right"><a href="#top">⬆ Kembali ke atas</a></p>
@@ -131,6 +138,20 @@ Hanya jika kamu ingin opencode bisa membuka browser:
 ```bash
 npx playwright install chromium
 ```
+
+### 2.6 Opsional - tools untuk MCP media (FFmpeg & ImageMagick)
+
+Hanya jika kamu ingin agent bisa mengedit/membuat gambar, video, atau musik:
+
+```bash
+# FFmpeg (wajib untuk semua MCP media)
+brew install ffmpeg
+
+# ImageMagick (hanya jika memakai artificer untuk edit gambar)
+brew install imagemagick
+```
+
+> Cek: `ffmpeg -version` dan `magick -version`. Setelah install, **tutup dan buka ulang Terminal** agar PATH terbaca.
 
 > LSP Kotlin (`kotlin-ls`) dan YAML (`yaml-ls`) diinstall **otomatis** oleh opencode saat dibutuhkan - tidak perlu manual.
 
@@ -320,12 +341,43 @@ Jika folder `.config` belum ada, buat dulu. Lalu isi file tersebut dengan:
         "~/data/app.db"
       ],
       "enabled": false
+    },
+    "video": {
+      "type": "local",
+      "command": ["uvx", "--from", "mcp-video", "mcp-video"],
+      "enabled": false
+    },
+    "artificer": {
+      "type": "local",
+      "command": ["npx", "-y", "artificer-mcp"],
+      "environment": { "GOOGLE_API_KEY": "{env:GEMINI_API_KEY}" },
+      "enabled": false
     }
   }
 }
 ```
 
-> **Setelah menyimpan file ini, WAJIB quit & restart opencode** - konfigurasi hanya dibaca saat opencode dijalankan.
+> **Catatan MCP media:** dua server di atas (`video` & `artificer`) **mati secara default** (`"enabled": false`) karena butuh tools & API key tambahan. Nyalakan hanya jika dibutuhkan (ubah jadi `true` lalu restart). Rinciannya di bawah.
+
+### Perbandingan MCP server media
+
+Semua server di tabel ini bekerja di **agent apa pun** (Opencode, Claude, Cursor, dsb.) karena MCP adalah protokol standar. Tidak semua disarankan untuk dipasang - pilih sesuai kebutuhan.
+
+| Server MCP | Kemampuan | Install | Catatan |
+|---|---|---|---|
+| **`mcp-video`** ⭐ rekomendasi | 91 tools: trim, merge, resize, crop, subtitle, transkripsi, normalisasi audio, color grading, repurposing shorts/reels | `uvx --from mcp-video mcp-video` | Free, via uv (sudah terinstall); butuh FFmpeg |
+| **`artificer`** <br>⚠️ pre-release | Generate/edit gambar (Gemini/Imagen/Nano Banana), video (Veo), musik (Lyria 3); edit gambar ImageMagick (57 tools); post-processing FFmpeg | `npx -y artificer-mcp` | Butuh FFmpeg + ImageMagick + API key Gemini (`GEMINI_API_KEY`) |
+| kinocut | 196 tools video "guardrailed" (cek kualitas sebelum publish) | `uvx` | Alternatif mcp-video |
+| ffmpeg-mcp (dubnium0) | 40+ tools: video/audio plus streaming HLS/DASH/RTMP | Python | Butuh FFmpeg |
+| ffmpeg-mcp-video-editor | 38 tools: deteksi/tracking wajah, render timeline | Python + uv | Butuh FFmpeg |
+| mcpCut | Editor timeline sungguhan (MLT/FFmpeg), auto-caption, voiceover | Self-host (Python) / hosted | Multi-track editing |
+| VEMCP (video_editing_mcp) | Pipeline FFmpeg satu-pass, transkripsi Whisper | Python | Butuh FFmpeg |
+| m3cp | OpenAI multimodal: edit/inpaint gambar, STT, TTS, transformasi suara | Python | Butuh API key OpenAI |
+| mcp-openai-images-audio | Edit gambar via `gpt-image-2` | Python | Butuh API key OpenAI |
+
+> `mcpCut`, `m3cp`, dan `mcp-openai-images-audio` tidak dimasukkan ke config utama karena butuh hosting sendiri / API key berbayar.
+
+> **Setelah menyimpan file ini, WAJIB quit & restart opencode** - konfigurasi hanya dibaca saat opencode dijalankan. Saat menyalakan server media, pastikan juga FFmpeg sudah terinstall (`ffmpeg -version`).
 
 <p align="right"><a href="#top">⬆ Kembali ke atas</a></p>
 
@@ -379,6 +431,7 @@ echo $ANTHROPIC_API_KEY
 | MCP server timeout | Tambah `"timeout": 30000` di entri server |
 | GitHub MCP gagal | Pastikan `GITHUB_PERSONAL_ACCESS_TOKEN` terisi, token valid, dan `oauth` di config bernilai `false` |
 | Playwright error | Jalankan `npx playwright install chromium` |
+| MCP media (`video`/`artificer`) tidak aktif | Servenya `enabled: false` secara default - ubah jadi `true` lalu restart. Pastikan `ffmpeg -version` jalan; untuk `artificer` juga butuh `magick -version` dan `GEMINI_API_KEY` terisi |
 | opencode tidak mau start / config error | Jalankan opencode dengan `OPENCODE_DISABLE_PROJECT_CONFIG=1`, perbaiki config, lalu restart |
 
 <p align="right"><a href="#top">⬆ Kembali ke atas</a></p>

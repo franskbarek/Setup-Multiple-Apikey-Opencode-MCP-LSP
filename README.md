@@ -13,6 +13,7 @@ Dokumen ini ditulis dengan bahasa yang cukup sederhana. cukup ikuti langkahnya.
   - [📌 Isi dokumen ini](#-isi-dokumen-ini)
   - [Apa yang harus kamu siapkan?](#apa-yang-harus-kamu-siapkan)
   - [Kasus umum penggunaan](#kasus-umum-penggunaan)
+  - [MCP untuk media (opsional)](#mcp-untuk-media-opsional)
   - [Pilih sistem operasi kamu](#pilih-sistem-operasi-kamu)
     - [🪟 Windows](#-windows)
     - [🍎 macOS](#-macos)
@@ -55,7 +56,22 @@ Opencode Agent bukan hanya untuk menulis kode. Berkat **MCP** (tools tambahan), 
 | 🎵 **Edit musik / produksi musik** | "Tolong bantu atur level suara, potong bagian lagu ini, dan kasih saran mixing yang sederhana." |
 | 🛠️ **Membantu pekerjaan biasa** | "Jalankan perintah ini di terminal, lalu jelaskan hasilnya padaku dengan bahasa sederhana." |
 
-> Intinya: agent bisa membantu apa pun yang umumnya kamu kerjakan sendiri di komputer - selama itu bisa dijelaskan lewat kata-kata dan tools-nya terpasang (misal aplikasi design, editor video, atau DAW untuk musik).
+> Intinya: agent bisa membantu apa pun yang umumnya kamu kerjakan sendiri di komputer - selama itu bisa dijelaskan lewat kata-kata dan tools-nya terpasang.
+
+#### Kerja di agent apa pun
+
+MCP itu **protokol standar** - tools MCP bisa dipakai di agent mana pun (Opencode, Claude, Cursor, dsb.) selama agentnya mendukung MCP. Jadi tools yang kamu pasang sekarang tetap bisa dipakai kalau nanti pindah agent.
+
+#### 🎬 MCP untuk media (opsional)
+
+Design foto, edit video, dan produksi musik di tabel atas **butuh MCP media tambahan** - server ini mati secara default (`"enabled": false`), nyalakan kalau dibutuhkan:
+
+| Server MCP | Kemampuan | Butuh |
+|---|---|---|
+| **`mcp-video`** | Edit video & audio: potong, gabung, resize, subtitle, transkripsi, normalisasi suara | FFmpeg terinstall |
+| **`artificer`** | Generate/Edit gambar (Gemini/Imagen), video (Veo), musik (Lyria 3), edit gambar (ImageMagick) | FFmpeg + ImageMagick + API key Gemini |
+
+> Untuk detail cara install & tabel perbandingan lengkapnya, lihat **"Bagian 5"** di panduan sistem operasi kamu.
 
 ---
 
