@@ -9,10 +9,13 @@
  *   node keys-pool-server.js --reset-cooldowns   # hapus state cooldown
  *   node keys-pool-server.js --port 9000
  *   node keys-pool-server.js --keys-file .\keys.env
+ *   node keys-pool-server.js --upstream https://opencode.ai/zen/v1
+ *   node keys-pool-server.js --state-file .\cooldowns.json
  *
  * Tanpa dependency - hanya modul inti Node.js (http, https, fs, path).
  * Mengalirkan request opencode ke https://opencode.ai/zen/v1
  * dan memilih key berikutnya saat upstream membalas 429/402.
+ * Key yang membalas 401/403 ditandai "mati" dan dihindari selama 24 jam.
  */
 
 'use strict';
@@ -25,12 +28,14 @@ const path = require('path');
 const SCRIPT_DIR = __dirname;
 const DEFAULT_PORT = 8765;
 const DEFAULT_HOST = '127.0.0.1';
-const UPSTREAM = 'https://opencode.ai/zen/v1';
-const STATE_FILE = path.join(SCRIPT_DIR, 'cooldowns.json');
+const UPSTREAM_DEFAULT = 'https://opencode.ai/zen/v1';
+const DEFAULT_STATE_FILE = path.join(SCRIPT_DIR, 'cooldowns.json');
 
 // Durasi cooldown bawaan (dipakai kalau server tidak mengirim Retry-After).
 const DEFAULT_COOLDOWN_429_MS = 30 * 1000;   // 30 detik untuk rate limit
 const DEFAULT_COOLDOWN_402_MS = 10 * 60 * 1000; // 10 menit untuk kuota habis
+// Key yang membalas 401/403 kemungkinan besar invalid/sudah di-revoke -> hindari 24 jam.
+const DEAD_KEY_MS = 24 * 60 * 60 * 1000;
 
 // ---------------------------------------------------------------------------
 // Argumen CLI
@@ -40,9 +45,11 @@ function usage() {
   console.log(`keys-pool-server.js - proxy rotasi multi API key OpenCode Zen
 
 Pilihan:
-  --port <n>            port proxy (default ${DEFAULT_PORT})
+  --port <n>            port proxy (default ${DEFAULT_PORT}); 0 = port bebas dari OS
   --host <addr>         alamat yang di-bind (default ${DEFAULT_HOST})
   --keys-file <path>    file daftar key (default keys.env di folder skrip ini)
+  --upstream <url>      URL upstream (default ${UPSTREAM_DEFAULT})
+  --state-file <path>   file state cooldown (default cooldowns.json di folder skrip ini)
   --dry-run             cek konfigurasi lalu keluar (tidak menjalankan server)
   --reset-cooldowns     hapus file state cooldown lalu keluar
   --help                tampilkan bantuan ini
@@ -53,19 +60,25 @@ File yang dibaca skrip ini:
 }
 
 function parseArgv(argv) {
-  const a = { port: DEFAULT_PORT, host: DEFAULT_HOST, keysFile: null, dryRun: false, reset: false };
+  const a = { port: DEFAULT_PORT, host: DEFAULT_HOST, keysFile: null, upstream: null, stateFile: null, dryRun: false, reset: false };
   for (let i = 0; i < argv.length; i++) {
     const cur = argv[i];
-    if (cur === '--port') a.port = parseInt(argv[++i], 10) || DEFAULT_PORT;
-    else if (cur.startsWith('--port=')) a.port = parseInt(cur.split('=')[1], 10) || DEFAULT_PORT;
+    if (cur === '--port') a.port = parseInt(argv[++i], 10);
+    else if (cur.startsWith('--port=')) a.port = parseInt(cur.split('=')[1], 10);
     else if (cur === '--host') a.host = argv[++i] || DEFAULT_HOST;
     else if (cur.startsWith('--host=')) a.host = cur.split('=')[1] || DEFAULT_HOST;
     else if (cur === '--keys-file') a.keysFile = argv[++i];
     else if (cur.startsWith('--keys-file=')) a.keysFile = cur.split('=')[1];
+    else if (cur === '--upstream') a.upstream = argv[++i];
+    else if (cur.startsWith('--upstream=')) a.upstream = cur.split('=')[1];
+    else if (cur === '--state-file') a.stateFile = argv[++i];
+    else if (cur.startsWith('--state-file=')) a.stateFile = cur.split('=')[1];
     else if (cur === '--dry-run') a.dryRun = true;
     else if (cur === '--reset-cooldowns') a.reset = true;
     else if (cur === '--help' || cur === '-h') { usage(); process.exit(0); }
   }
+  if (!Number.isFinite(a.port) || a.port < 0) abort('--port harus angka >= 0');
+  if (a.upstream) a.upstream = a.upstream.replace(/\/+$/, '');
   return a;
 }
 
@@ -89,25 +102,26 @@ function loadKeys(file) {
   return keys;
 }
 
+let stateFile = DEFAULT_STATE_FILE;
+let state = {};
+let stateWriteTimer = null;
+
 function loadState() {
   try {
-    const s = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+    const s = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
     return s && typeof s === 'object' ? s : {};
   } catch {
     return {};
   }
 }
 
-let state = loadState();
-let stateWriteTimer = null;
-
 function saveState() {
   if (stateWriteTimer) clearTimeout(stateWriteTimer);
   stateWriteTimer = setTimeout(() => {
     try {
-      fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+      fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
     } catch (e) {
-      console.error('INFO: gagal menyimpan cooldowns.json (' + e.message + ')');
+      console.error('INFO: gagal menyimpan ' + stateFile + ' (' + e.message + ')');
     }
   }, 500);
 }
@@ -115,9 +129,9 @@ function saveState() {
 function flushStateNow() {
   if (stateWriteTimer) clearTimeout(stateWriteTimer);
   try {
-    fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+    fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
   } catch (e) {
-    console.error('INFO: gagal menyimpan cooldowns.json (' + e.message + ')');
+    console.error('INFO: gagal menyimpan ' + stateFile + ' (' + e.message + ')');
   }
 }
 
@@ -129,10 +143,17 @@ function nowMs() {
   return Date.now();
 }
 
-// Key pertama (urutan = prioritas) yang TIDAK sedang dalam cooldown.
+// Key yang pernah membalas 401/403 dan masih dalam masa "mati".
+function isDead(key) {
+  const s = state[key];
+  return !!(s && s.dead && s.deadUntil > nowMs());
+}
+
+// Key pertama (urutan = prioritas) yang TIDAK sedang cooldown dan TIDAK mati.
 function pickKey(keys) {
   const t = nowMs();
   for (const k of keys) {
+    if (isDead(k)) continue;
     const s = state[k];
     if (!s || !(s.until > t)) return k;
   }
@@ -143,7 +164,9 @@ function earliestUntil(keys) {
   let min = Infinity;
   for (const k of keys) {
     const s = state[k];
-    if (s && s.until < min) min = s.until;
+    if (!s) continue;
+    const u = s.dead ? s.deadUntil : s.until;
+    if (u && u < min) min = u;
   }
   return min === Infinity ? nowMs() : min;
 }
@@ -157,8 +180,18 @@ function markCooldown(key, durationMs, statusCode) {
   console.log('cooldown key ' + labelOf(key) + ' selama ' + Math.round(durationMs / 1000) + 's (status ' + statusCode + ')');
 }
 
-function countRequest(key) {
+function markDead(key, statusCode) {
   const s = state[key] || { until: 0, requests: 0, quota: 0 };
+  s.dead = true;
+  s.deadUntil = nowMs() + DEAD_KEY_MS;
+  s.deadCount = (s.deadCount || 0) + 1;
+  state[key] = s;
+  saveState();
+  console.log('key ' + labelOf(key) + ' ditandai mati selama ' + Math.round(DEAD_KEY_MS / 3600000) + ' jam (status ' + statusCode + ')');
+}
+
+function countRequest(key) {
+  const s = state[key] || { until: 0, requests: 0, quota: 0, deadCount: 0 };
   s.requests = (s.requests || 0) + 1;
   state[key] = s;
 }
@@ -166,6 +199,8 @@ function countRequest(key) {
 // ---------------------------------------------------------------------------
 // HTTP
 // ---------------------------------------------------------------------------
+
+let upstreamBase = UPSTREAM_DEFAULT;
 
 // Path proxy /v1/... dipetakan ke upstream /zen/v1/...
 function mapUpstreamPath(incomingUrl) {
@@ -177,12 +212,26 @@ function isQuotaStatus(code) {
   return code === 429 || code === 402;
 }
 
-function cooldownDurationMs(pres) {
-  const ra = pres.headers['retry-after'];
-  if (ra) {
-    const secs = parseInt(ra, 10);
-    if (!isNaN(secs) && secs >= 0) return secs * 1000;
+function isDeadStatus(code) {
+  return code === 401 || code === 403;
+}
+
+// Retry-After boleh berupa detik atau tanggal (RFC 7231). Mengembalikan durasi ms atau null.
+function parseRetryAfter(ra) {
+  if (!ra) return null;
+  const secs = parseInt(ra, 10);
+  if (!isNaN(secs) && secs >= 0) return secs * 1000;
+  const t = Date.parse(ra);
+  if (!isNaN(t)) {
+    const d = t - nowMs();
+    return d > 0 ? d : null;
   }
+  return null;
+}
+
+function cooldownDurationMs(pres) {
+  const ra = parseRetryAfter(pres.headers['retry-after']);
+  if (ra !== null) return ra;
   return pres.statusCode === 402 ? DEFAULT_COOLDOWN_402_MS : DEFAULT_COOLDOWN_429_MS;
 }
 
@@ -206,15 +255,15 @@ function failAllCooldown(res, keys) {
   }
   res.end(JSON.stringify({
     error: {
-      message: 'Semua key Zen sedang dalam cooldown. Ada key kembali aktif dalam sekitar ' + secs + ' detik. Cek `curl http://' + DEFAULT_HOST + ':8765/status`.',
+      message: 'Semua key Zen sedang tidak tersedia (cooldown / key mati). Ada key kembali aktif dalam sekitar ' + secs + ' detik. Cek `curl http://' + DEFAULT_HOST + ':' + DEFAULT_PORT + '/status`.',
       type: 'key_pool_exhausted',
     },
   }));
 }
 
-function forwarded(req, res, bodyBuf, keys, attempts) {
+function forwarded(req, res, bodyBuf, keys, upstream, attempts) {
   if (attempts > keys.length) {
-    // Semua key sudah dicoba dan masuk cooldown dalam satu request.
+    // Semua key sudah dicoba (cooldown / mati) dalam satu request.
     failAllCooldown(res, keys);
     return;
   }
@@ -225,18 +274,20 @@ function forwarded(req, res, bodyBuf, keys, attempts) {
     return;
   }
 
-  const upstreamUrl = new URL(mapUpstreamPath(req.url) || '/', UPSTREAM);
+  const upstreamUrl = new URL(mapUpstreamPath(req.url) || '/', upstream);
   const headers = Object.assign({}, req.headers);
   headers.host = upstreamUrl.host;
   headers.authorization = 'Bearer ' + key;
   headers['content-length'] = bodyBuf.length;
   ['proxy-connection', 'connection', 'transfer-encoding'].forEach((n) => delete headers[n]);
 
-  const preq = https.request(
+  const requester = upstreamUrl.protocol === 'http:' ? http.request : https.request;
+  const preq = requester(
     {
       method: req.method,
       hostname: upstreamUrl.hostname,
-      port: upstreamUrl.port || 443,
+      port: upstreamUrl.port || (upstreamUrl.protocol === 'http:' ? 80 : 443),
+      protocol: upstreamUrl.protocol,
       path: upstreamUrl.pathname + upstreamUrl.search,
       headers,
     },
@@ -246,7 +297,14 @@ function forwarded(req, res, bodyBuf, keys, attempts) {
         // Kuota / rate limit -> tandai key, lalu coba key berikutnya.
         markCooldown(key, cooldownDurationMs(pres), code);
         drain(pres);
-        forwarded(req, res, bodyBuf, keys, attempts + 1);
+        forwarded(req, res, bodyBuf, keys, upstream, attempts + 1);
+        return;
+      }
+      if (isDeadStatus(code)) {
+        // Key tampaknya invalid -> tandai mati, lalu coba key berikutnya.
+        markDead(key, code);
+        drain(pres);
+        forwarded(req, res, bodyBuf, keys, upstream, attempts + 1);
         return;
       }
       countRequest(key);
@@ -272,18 +330,22 @@ function statusPayload(keys) {
   const t = nowMs();
   const rows = keys.map((k) => {
     const s = state[k];
+    const dead = isDead(k);
     const pending = !!(s && s.until > t);
     return {
       key: labelOf(k),
-      status: pending ? 'cooldown' : 'active',
-      cooldownSecondsLeft: pending ? Math.max(0, Math.ceil((s.until - t) / 1000)) : 0,
+      status: dead ? 'dead' : (pending ? 'cooldown' : 'active'),
+      cooldownSecondsLeft: dead
+        ? Math.max(0, Math.ceil((s.deadUntil - t) / 1000))
+        : (pending ? Math.max(0, Math.ceil((s.until - t) / 1000)) : 0),
       requests: s ? s.requests : 0,
       quotaHits: s ? s.quota : 0,
+      deadCount: s ? (s.deadCount || 0) : 0,
     };
   });
   return {
     ok: true,
-    upstream: UPSTREAM,
+    upstream: upstreamBase,
     totalKeys: keys.length,
     activeKeys: rows.filter((r) => r.status === 'active').length,
     keys: rows,
@@ -294,7 +356,7 @@ function statusPayload(keys) {
 // Mode CLI
 // ---------------------------------------------------------------------------
 
-function runDryRun(keys) {
+function runDryRun(keys, keysFileUsed) {
   console.log('--- dry-run ---');
   console.log('File key        : ' + keysFileUsed);
   console.log('Jumlah key      : ' + keys.length);
@@ -303,67 +365,91 @@ function runDryRun(keys) {
   const t = nowMs();
   const inCooldown = keys.filter((k) => state[k] && state[k].until > t);
   console.log('Cooldown aktif  : ' + (inCooldown.length ? inCooldown.map((k) => labelOf(k)).join(', ') : 'tidak ada'));
-  console.log('Upstream        : ' + UPSTREAM);
+  const deadKeys = keys.filter((k) => isDead(k));
+  console.log('Key mati        : ' + (deadKeys.length ? deadKeys.map((k) => labelOf(k)).join(', ') : 'tidak ada'));
+  console.log('Upstream        : ' + upstreamBase);
+  console.log('State file      : ' + stateFile);
   console.log('OK - konfigurasi valid. Jalankan tanpa --dry-run untuk memulai proxy.');
   process.exit(0);
 }
 
 function runReset() {
   state = {};
-  if (fs.existsSync(STATE_FILE)) fs.unlinkSync(STATE_FILE);
-  console.log('Cooldown direset. Semua key kembali aktif.');
+  if (fs.existsSync(stateFile)) fs.unlinkSync(stateFile);
+  console.log('State direset (cooldown + key mati). Semua key kembali aktif.');
   process.exit(0);
+}
+
+// ---------------------------------------------------------------------------
+// Server
+// ---------------------------------------------------------------------------
+
+function createServer(keys, upstream, args) {
+  upstreamBase = upstream;
+  stateFile = args.stateFile || DEFAULT_STATE_FILE;
+  state = loadState();
+
+  const server = http.createServer((req, res) => {
+    const chunks = [];
+    let size = 0;
+    req.on('data', (c) => {
+      chunks.push(c);
+      size += c.length;
+    });
+    req.on('end', () => {
+      const body = Buffer.concat(chunks, size);
+
+      if (req.url === '/health') {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, uptimeSeconds: Math.round(process.uptime()) }));
+        return;
+      }
+      if (req.url === '/status') {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify(statusPayload(keys), null, 2));
+        return;
+      }
+
+      forwarded(req, res, body, keys, upstreamBase, 0);
+    });
+    req.on('error', (err) => {
+      console.error('request error: ' + err.message);
+      if (!res.headersSent) {
+        res.writeHead(400, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: err.message, type: 'invalid_request' } }));
+      }
+    });
+  });
+
+  process.on('SIGINT', () => { flushStateNow(); process.exit(0); });
+  process.on('SIGTERM', () => { flushStateNow(); process.exit(0); });
+
+  server.listen(args.port, args.host, () => {
+    const port = server.address().port;
+    console.log('keys-pool-server berjalan di http://' + args.host + ':' + port);
+    console.log('Key terdaftar  : ' + keys.length + ' (prioritas = urutan di ' + args.keysFile + ')');
+    console.log('Upstream       : ' + upstream);
+    console.log('Cek status     : curl http://' + args.host + ':' + port + '/status');
+  });
 }
 
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
-const args = parseArgv(process.argv.slice(2));
-const keysFileUsed = args.keysFile || path.join(SCRIPT_DIR, 'keys.env');
-const keys = loadKeys(keysFileUsed);
+function main() {
+  const args = parseArgv(process.argv.slice(2));
+  const keysFileUsed = args.keysFile || path.join(SCRIPT_DIR, 'keys.env');
+  const upstream = args.upstream || UPSTREAM_DEFAULT;
+  const keys = loadKeys(keysFileUsed);
+  stateFile = args.stateFile || DEFAULT_STATE_FILE;
+  state = loadState();
+  upstreamBase = upstream;
 
-if (args.reset) runReset();
-if (args.dryRun) runDryRun(keys);
+  if (args.reset) runReset();
+  if (args.dryRun) runDryRun(keys, keysFileUsed);
 
-const server = http.createServer((req, res) => {
-  const chunks = [];
-  let size = 0;
-  req.on('data', (c) => {
-    chunks.push(c);
-    size += c.length;
-  });
-  req.on('end', () => {
-    const body = Buffer.concat(chunks, size);
+  createServer(keys, upstream, args);
+}
 
-    if (req.url === '/health') {
-      res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, uptimeSeconds: Math.round(process.uptime()) }));
-      return;
-    }
-    if (req.url === '/status') {
-      res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify(statusPayload(keys), null, 2));
-      return;
-    }
-
-    forwarded(req, res, body, keys, 0);
-  });
-  req.on('error', (err) => {
-    console.error('request error: ' + err.message);
-    if (!res.headersSent) {
-      res.writeHead(400, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: err.message, type: 'invalid_request' } }));
-    }
-  });
-});
-
-process.on('SIGINT', () => { flushStateNow(); process.exit(0); });
-process.on('SIGTERM', () => { flushStateNow(); process.exit(0); });
-
-server.listen(args.port, args.host, () => {
-  console.log('keys-pool-server berjalan di http://' + args.host + ':' + args.port);
-  console.log('Key terdaftar  : ' + keys.length + ' (prioritas = urutan di ' + keysFileUsed + ')');
-  console.log('Upstream       : ' + UPSTREAM);
-  console.log('Cek status     : curl http://' + args.host + ':' + args.port + '/status');
-});
+main();

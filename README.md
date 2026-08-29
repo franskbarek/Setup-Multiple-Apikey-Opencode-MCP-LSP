@@ -86,7 +86,7 @@ opencode (TUI / opencode run / MCP / curl)
 1. **Request masuk** - opencode mengirim permintaan ke proxy (misal kita mulai dari key #1, key paling atas di `keys.env`).
 2. **Teruskan** - proxy meneruskan request itu ke `https://opencode.ai/zen/v1` memakai key #1.
 3. **Respons normal** - kalau key #1 sehat, jawaban (termasuk SSE yang mengalir token demi token) diteruskan langsung ke opencode. Selesai.
-4. **Kuota habis** - kalau upstream membalas `429`/`402` (kuota key #1 habis), proxy menandai key #1 sebagai *pending* selama durasi tertentu (pakai `Retry-After` kalau dikirim server).
+4. **Kuota habis / key invalid** - kalau upstream membalas `429`/`402` (kuota key #1 habis), proxy menandai key #1 sebagai *pending* selama durasi tertentu (pakai `Retry-After` kalau dikirim server). Kalau yang keluar `401`/`403` (key #1 invalid), key #1 justru ditandai *mati* selama 24 jam - karena menunggu 30 detik tidak akan menyembuhkannya.
 5. **Ganti key** - karena key #1 pending, proxy otomatis mencoba key berikutnya di daftar (key #2, #3, dst.).
 6. **Semua pending** - kalau semua key sedang pending, proxy balas `429` + pesan yang mudah dibaca ke opencode, misal *"Semua key Zen sedang dalam cooldown, coba lagi ~2 menit lagi."*
 7. **Pulih otomatis** - setelah durasi pending habis, key kembali aktif dan dipakai lagi. Karena state disimpan di `cooldowns.json`, cooldown ini **tetap berlaku walau komputer di-restart**.
@@ -111,42 +111,92 @@ Supaya keputusan di atas jelas, ini catatan perbandingan saya:
 - **Port**: `127.0.0.1:8765`, hanya bind ke localhost (tidak terbuka ke jaringan)
 - **Masukan**: `keys.env` - satu key per baris, baris atas = prioritas
 - **State**: `cooldowns.json` - durasi pending bertahan walau komputer di-restart
-- **Rotasi**: respons `429` / `402` dengan body kuota → pending key itu (pakai `Retry-After` jika ada), lanjut ke key berikutnya; 4xx non-kuota diteruskan apa adanya
+- **Rotasi**: respons `429` / `402` dengan body kuota → pending key itu (pakai `Retry-After` jika ada, durasinya bisa berupa detik atau tanggal), lanjut ke key berikutnya
+- **Key mati**: respons `401` / `403` → key itu ditandai *mati* selama 24 jam dan dilewati, karena key invalid tidak akan "sembuh" dengan menunggu sebentar
 - **Kapasitas habis semua**: balas `429` ke opencode dengan pesan yang mudah dibaca
-- **Endpoint**: `/health` (proxy hidup?) dan `/status` (keadaan tiap key)
+- **Endpoint**: `/health` (proxy hidup?) dan `/status` (keadaan tiap key: `active`/`cooldown`/`dead`)
 - **Streaming**: SSE `chat/completions` diteruskan byte-by-byte agar token tetap muncul langsung
-- **Opsi CLI**: `--port`, `--keys-file`, `--dry-run`, `--reset-cooldowns`
+- **Opsi CLI**: `--port` (0 = port bebas dari OS), `--host`, `--keys-file`, `--upstream`, `--state-file`, `--dry-run`, `--reset-cooldowns`
+- **Tes otomatis**: `npm test` (pakai `node:test`, tanpa dependency - butuh Node 18+)
 
 ### Cara kerja isi file `keys-pool-server.js` (step by step)
 
 File ini satu-satunya yang "menjalankan" konsep failover. Alur yang dikerjakan kodenya dari atas ke bawah:
 
-**1. Persiapan (baris 18-33).** Hanya memakai modul inti Node.js (`http`, `https`, `fs`, `path`) - tidak ada dependency yang perlu diinstall. Lalu menetapkan konstanta: port `8765`, host `127.0.0.1`, upstream `https://opencode.ai/zen/v1`, dan lokasi file state `cooldowns.json`.
+**1. Persiapan (baris 20-37).** Hanya memakai modul inti Node.js (`http`, `https`, `fs`, `path`) - tidak ada dependency yang perlu diinstall. Lalu menetapkan konstanta: port `8765`, host `127.0.0.1`, upstream `https://opencode.ai/zen/v1`, lokasi file state `cooldowns.json`, dan durasi cooldown bawaan (30 detik untuk 429, 10 menit untuk 402) plus `DEAD_KEY_MS` (24 jam untuk key yang balas 401/403).
 
-**2. Baca argumen CLI (baris 55-70).** Memproses `--port`, `--host`, `--keys-file`, `--dry-run`, `--reset-cooldowns`. `--help` menampilkan bantuan lewat fungsi `usage()`.
+**2. Baca argumen CLI (baris 62-93).** Memproses `--port` (0 = port bebas dari OS), `--host`, `--keys-file`, `--upstream`, `--state-file`, `--dry-run`, `--reset-cooldowns`. `--help` menampilkan bantuan lewat fungsi `usage()`.
 
-**3. Muat daftar key (baris 82-90).** Membaca `keys.env`. Tiap baris di-trim; baris kosong dan yang diawali `#` dilewati; duplikat dibuang. Urutan baris = prioritas. Kalau tidak ada key sama sekali, skrip berhenti dengan pesan "Tidak ada key valid".
+**3. Muat daftar key (baris 95-105).** Membaca `keys.env`. Tiap baris di-trim; baris kosong dan yang diawali `#` dilewati; duplikat dibuang. Urutan baris = prioritas. Kalau tidak ada key sama sekali, skrip berhenti dengan pesan "Tidak ada key valid".
 
-**4. Muat state cooldown (baris 92-99).** Kalau `cooldowns.json` sudah ada dari run sebelumnya, dibaca - jadi key yang sedang menunggu tetap menunggu walau server di-restart.
+**4. Muat state cooldown (baris 109-116).** Kalau file state (default `cooldowns.json`, bisa diganti lewat `--state-file`) sudah ada dari run sebelumnya, dibaca - jadi key yang sedang menunggu atau mati tetap menunggu walau server di-restart.
 
-**5. Mode khusus (baris 297-327).** `--dry-run` → tampilkan jumlah key, urutan prioritas, dan cooldown aktif, lalu keluar tanpa menjalankan server. `--reset-cooldowns` → kosongkan `cooldowns.json`, semua key kembali aktif.
+**5. Mode khusus (baris 359-385).** `--dry-run` → tampilkan jumlah key, urutan prioritas, cooldown aktif, dan key mati, lalu keluar tanpa menjalankan server. `--reset-cooldowns` → kosongkan file state (cooldown + key mati), semua key kembali aktif.
 
-**6. Jalankan server (baris 329-369).** Mendengarkan request di `127.0.0.1:8765`.
+**6. Jalankan server (baris 387-436).** Mendengarkan request di `127.0.0.1:8765`.
 - `/health` → jawab `{ "ok": true }`.
-- `/status` → daftar tiap key: status `active`/`cooldown`, sisa detik cooldown, jumlah request, dan berapa kali kena kuota.
+- `/status` → daftar tiap key: status `active`/`cooldown`/`dead`, sisa detik cooldown, jumlah request, berapa kali kena kuota, dan berapa kali ditandai mati.
 - request model (misal `POST /v1/chat/completions`) → dilempar ke fungsi `forwarded()`.
 
-**7. Inti rotasi - fungsi `forwarded()` (baris 215-269):**
-- (a) Kalau sudah mencoba lebih dari jumlah key → semua dalam cooldown → balas `429` dengan pesan ramah.
-- (b) `pickKey()` memilih key urutan teratas yang **tidak** sedang pending (baris 133-140).
-- (c) Bangun request ke upstream: path `/v1/...` diubah jadi `/zen/v1/...` (baris 171-174), header `authorization: Bearer <key>` disuntikkan (baris 231).
-- (d) Kirim ke `https://opencode.ai/zen/v1`.
+**7. Inti rotasi - fungsi `forwarded()` (baris 264-327):**
+- (a) Kalau sudah mencoba lebih dari jumlah key → semua tidak tersedia → balas `429` dengan pesan ramah (baris 266-274).
+- (b) `pickKey()` memilih key urutan teratas yang **tidak** pending dan **tidak** mati (baris 153-161).
+- (c) Bangun request ke upstream: path `/v1/...` diubah jadi `/zen/v1/...` (baris 206-209), header `authorization: Bearer <key>` disuntikkan (baris 280).
+- (d) Kirim ke upstream (`--upstream`, default `https://opencode.ai/zen/v1`).
 - (e) Respons masuk:
-  - **429/402** → `markCooldown()` mencatat key itu pending (durasi dari header `Retry-After`, kalau tidak ada: 30 detik untuk 429, 10 menit untuk 402), lalu `forwarded()` dipanggil ulang **dengan key berikutnya** (baris 245-250). opencode tidak sadar apa pun.
-  - **selain itu** → jumlah request dicatat, status + header diteruskan (header `transfer-encoding`/`content-length`/`connection` dibuang biar streaming bersih), dan body (termasuk SSE token) dikirim ke opencode (baris 252-254).
-- (f) Gagal terhubung ke upstream → balas `502` dengan pesan (baris 258-266).
+  - **429/402** → `markCooldown()` mencatat key itu pending (durasi dari header `Retry-After` - boleh detik atau tanggal lewat `parseRetryAfter()` di baris 220; kalau tidak ada: 30 detik untuk 429, 10 menit untuk 402), lalu `forwarded()` dipanggil ulang **dengan key berikutnya** (baris 296-301). opencode tidak sadar apa pun.
+  - **401/403** → `markDead()` menandai key itu *mati* 24 jam lalu lanjut key berikutnya (baris 303-307) - mencegah key invalid dipakai berulang-ulang.
+  - **selain itu** → jumlah request dicatat, status + header diteruskan (header `transfer-encoding`/`content-length`/`connection` dibuang biar streaming bersih), dan body (termasuk SSE token) dikirim ke opencode (baris 310-312).
+- (f) Gagal terhubung ke upstream → balas `502` dengan pesan (baris 317-322).
 
-**8. Menjaga state tetap tersimpan (baris 104-122, 361-362).** Setiap ada perubahan cooldown, `cooldowns.json` disimpan setelah jeda 500 ms (biar tidak boros disk). Saat server dimatikan (Ctrl+C / SIGTERM), state dipaksa disimpan dulu supaya tidak hilang.
+**8. Menjaga state tetap tersimpan (baris 118-145, 424-425).** Setiap ada perubahan cooldown, file state disimpan setelah jeda 500 ms (biar tidak boros disk). Saat server dimatikan (Ctrl+C / SIGTERM), state dipaksa disimpan dulu supaya tidak hilang.
+
+### Menjalankan proxy otomatis (tanpa start manual)
+
+Proxy tidak punya tombol UI - supaya failover tetap jalan, pastikan `keys-pool-server.js` ikut hidup otomatis saat komputer nyala. Pilih salah satu:
+
+**Opsi A: pm2 (semua OS, paling simpel).** [`pm2`](https://pm2.keymetrics.io) mengurus start ulang, log, dan auto-start saat reboot:
+- Install sekali: `npm install -g pm2`
+- Jalankan: `pm2 start keys-pool-server.js --name keys-pool`
+- Simpan daftar proses: `pm2 save`
+- Aktifkan auto-start saat reboot: `pm2 startup` lalu jalankan perintah persis yang dicetak (sekali saja)
+- Cek: `pm2 status` / `pm2 logs keys-pool`
+
+**Opsi B: Task Scheduler Windows (tanpa menginstall apa pun).**
+- Buka `Task Scheduler` → *Create Basic Task*.
+- Nama: `keys-pool` → Trigger: *When the computer starts* → Action: *Start a program*.
+- Program: `node` (jika tidak ketemu, pakai path lengkap hasil `where node`) → Arguments: `"C:\...\keys-pool-server.js"` → Start in: folder skripnya.
+- Centang *Run with highest privileges* tidak perlu; cukup pastikan task aktif.
+
+**Opsi C: launchd macOS (tanpa menginstall apa pun).** Simpan file `com.franskbarek.keys-pool.plist` di `~/Library/LaunchAgents/`:
+- Ganti `{NAMA_USER}`, `{FOLDER_SKRIP}`, dan `{PENGGANTI_NODE}` (path `node` hasil `which node`) sesuai milikmu.
+- Setelah itu jalankan `launchctl load ~/Library/LaunchAgents/com.franskbarek.keys-pool.plist`.
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.franskbarek.keys-pool</string>
+    <key>ProgramArguments</key>
+    <array>
+      <string>{PENGGANTI_NODE}</string>
+      <string>{FOLDER_SKRIP}/keys-pool-server.js</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>{FOLDER_SKRIP}</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/keys-pool.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/keys-pool.log</string>
+  </dict>
+</plist>
+```
 
 ### Konfigurasi opencode
 

@@ -51,9 +51,9 @@ Jika ini pertama kali membaca, mulai dari [README utama](../../README.md) untuk 
                   └───── balas 429 + pesan jelas ke opencode
 ```
 
-**Penjelasan singkat:** satu key sehat → request diteruskan langsung (termasuk token streaming). Kuota key habis (`429`/`402`) → key itu menunggu dulu, proxy otomatis pakai key berikutnya. Semua key menunggu → proxy bilang ke opencode *"semua key sedang cooldown"*. Setelah jeda habis, key aktif lagi; state disimpan di `cooldowns.json` jadi awet walau komputer di-restart.
+**Penjelasan singkat:** satu key sehat → request diteruskan langsung (termasuk token streaming). Kuota key habis (`429`/`402`) → key itu menunggu dulu, proxy otomatis pakai key berikutnya. Key yang membalas `401`/`403` (invalid) tidak disuruh menunggu, tapi ditandai *mati* selama 24 jam supaya tidak dipakai lagi. Semua key tidak tersedia → proxy bilang ke opencode *"semua key sedang cooldown"*. Setelah jeda habis, key aktif lagi; state disimpan di `cooldowns.json` jadi awet walau komputer di-restart.
 
-> ✅ **Status: sudah saya implementasikan.** Skrip `keys-pool-server.js` tersedia di [repo utama](../../keys-pool-server.js). Penjelasan konsep + perbandingan ada di [README utama](../../README.md#-1-failover-multi-api-key-prioritas). Isi kodenya dijelaskan step by step di [Cara kerja isi file keys-pool-server.js](../../README.md#cara-kerja-isi-file-keys-pool-serverjs-step-by-step).
+> ✅ **Status: sudah saya implementasikan.** Skrip `keys-pool-server.js` tersedia di [repo utama](../../keys-pool-server.js). Penjelasan konsep + perbandingan ada di [README utama](../../README.md#-1-failover-multi-api-key-prioritas). Isi kodenya dijelaskan step by step di [Cara kerja isi file keys-pool-server.js](../../README.md#cara-kerja-isi-file-keys-pool-serverjs-step-by-step). Supaya proxy ikut hidup otomatis saat komputer nyala, lihat [Menjalankan proxy otomatis](../../README.md#menjalankan-proxy-otomatis-tanpa-start-manual).
 
 > ⚠️ Bagian ini butuh **Node.js ≥ 20** dan **opencode** terinstall. Kalau belum ada, kerjakan **Bagian 2 & 3** dulu (sekitar 10 menit), lalu kembali ke sini.
 
