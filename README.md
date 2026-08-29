@@ -37,11 +37,11 @@ Beberapa teman sempat menyarankan plugin fallback (contoh `@razroo/opencode-mode
 - supaya key bisa dibedakan, tiap key harus dibuatkan "custom provider" sendiri di config
 - deteksinya lewat error SDK, bukan status HTTP asli dari server
 
-Keputusan saya: untuk kasus seperti ini yang tepat bukan plugin, melainkan **key-pool proxy** di bawah.
+Keputusan saya: untuk kasus seperti ini yang tepat bukan plugin, melainkan **key-pool proxy**.
 
 ### Konsep yang saya pilih: key-pool proxy lokal
 
-Satu proxy kecil yang saya jalankan di komputer, terdapat di antara opencode dan server Zen. opencode hanya berkomunikasi ke proxy; proxy yang memegang daftar key dan memilih key mana yang dipakai setiap request.
+Satu proxy kecil yang saya jalankan di komputer, terdapat di antara opencode dan server Zen. opencode hanya berkomunikasi ke proxy, proxy yang memegang daftar key dan memilih key mana yang dipakai setiap request.
 
 ```
 opencode (TUI / opencode run / MCP / curl)
@@ -81,10 +81,10 @@ opencode (TUI / opencode run / MCP / curl)
    balas 429 + pesan mudah dibaca ke opencode
 ```
 
-#### Penjelasan langkah demi langkah
+#### Penjelasan flowchart
 
 1. **Request masuk** - opencode mengirim permintaan ke proxy (misal kita mulai dari key #1, key paling atas di `keys.env`).
-2. **Teruskan** - proxy meneruskan request itu ke `https://opencode.ai/zen/v1` memakai key #1.
+2. **Terus** - proxy meneruskan request itu ke `https://opencode.ai/zen/v1` memakai key #1.
 3. **Respons normal** - kalau key #1 sehat, jawaban (termasuk SSE yang mengalir token demi token) diteruskan langsung ke opencode. Selesai.
 4. **Kuota habis / key invalid** - kalau upstream membalas `429`/`402` (kuota key #1 habis), proxy menandai key #1 sebagai *pending* selama durasi tertentu (pakai `Retry-After` kalau dikirim server). Kalau yang keluar `401`/`403` (key #1 invalid), key #1 justru ditandai *mati* selama 24 jam - karena menunggu 30 detik tidak akan menyembuhkannya.
 5. **Ganti key** - karena key #1 pending, proxy otomatis mencoba key berikutnya di daftar (key #2, #3, dst.).
@@ -93,11 +93,11 @@ opencode (TUI / opencode run / MCP / curl)
 
 Karena logika ini ada di level HTTP, satu konsep ini langsung berlaku untuk **TUI, `opencode run`, MCP, dan curl** sekaligus - tanpa menyentuh model yang dipakai.
 
-> ✅ **Status: sudah saya implementasikan.** Skrip `keys-pool-server.js` sudah jadi dan ada di repo ini - ikuti Bagian 1 di panduan sistem operasi kamu untuk langkah nyatanya.
+> ✅ **Status: sudah saya implementasikan.** Skrip `keys-pool-server.js` sudah jadi dan ada di repo ini - ikuti Bagian 1 di panduan sistem operasi kamu untuk langkahnya.
 
 ### Perbandingan pendekatan
 
-Supaya keputusan di atas jelas, ini catatan perbandingan saya:
+Supaya keputusan di atas jelas, ini catatan perbandingan diatas:
 
 | Pendekatan | Rotasi di tengah sesi TUI | Rotasi key (bukan model) | Deteksi error | Persisten antar restart | Berlaku untuk command lain |
 |---|---|---|---|---|---|
@@ -123,7 +123,7 @@ Supaya keputusan di atas jelas, ini catatan perbandingan saya:
 
 File ini satu-satunya yang "menjalankan" konsep failover. Alur yang dikerjakan kodenya dari atas ke bawah:
 
-**1. Persiapan (baris 20-37).** Hanya memakai modul inti Node.js (`http`, `https`, `fs`, `path`) - tidak ada dependency yang perlu diinstall. Lalu menetapkan konstanta: port `8765`, host `127.0.0.1`, upstream `https://opencode.ai/zen/v1`, lokasi file state `cooldowns.json`, dan durasi cooldown bawaan (30 detik untuk 429, 10 menit untuk 402) plus `DEAD_KEY_MS` (24 jam untuk key yang balas 401/403).
+**1. Persiapan (baris 20-37).** Hanya memakai core modul Node.js (`http`, `https`, `fs`, `path`) - tidak ada dependency yang perlu diinstall. Lalu menetapkan konstanta: port `8765`, host `127.0.0.1`, upstream `https://opencode.ai/zen/v1`, lokasi file state `cooldowns.json`, dan durasi cooldown bawaan (30 detik untuk 429, 10 menit untuk 402) plus `DEAD_KEY_MS` (24 jam untuk key yang balas 401/403).
 
 **2. Baca argumen CLI (baris 62-93).** Memproses `--port` (0 = port bebas dari OS), `--host`, `--keys-file`, `--upstream`, `--state-file`, `--dry-run`, `--reset-cooldowns`. `--help` menampilkan bantuan lewat fungsi `usage()`.
 
@@ -155,18 +155,18 @@ File ini satu-satunya yang "menjalankan" konsep failover. Alur yang dikerjakan k
 
 Proxy tidak punya tombol UI - supaya failover tetap jalan, pastikan `keys-pool-server.js` ikut hidup otomatis saat komputer nyala. Pilih salah satu:
 
-**Opsi A: pm2 (semua OS, paling simpel).** [`pm2`](https://pm2.keymetrics.io) mengurus start ulang, log, dan auto-start saat reboot:
-- Install sekali: `npm install -g pm2`
-- Jalankan: `pm2 start keys-pool-server.js --name keys-pool`
-- Simpan daftar proses: `pm2 save`
-- Aktifkan auto-start saat reboot: `pm2 startup` lalu jalankan perintah persis yang dicetak (sekali saja)
-- Cek: `pm2 status` / `pm2 logs keys-pool`
-
-**Opsi B: Task Scheduler Windows (tanpa menginstall apa pun).**
+**Opsi A: Task Scheduler Windows (tanpa menginstall apa pun).**
 - Buka `Task Scheduler` → *Create Basic Task*.
 - Nama: `keys-pool` → Trigger: *When the computer starts* → Action: *Start a program*.
 - Program: `node` (jika tidak ketemu, pakai path lengkap hasil `where node`) → Arguments: `"C:\...\keys-pool-server.js"` → Start in: folder skripnya.
 - Centang *Run with highest privileges* tidak perlu; cukup pastikan task aktif.
+
+**Opsi B: pm2 (semua OS, paling simpel).** [`pm2`](https://pm2.keymetrics.io) mengurus start ulang, log, dan auto-start saat reboot:
+- Install sekali: `npm install -g pm2`
+- Jalankan: `pm2 start keys-pool-server.js --name keys-pool`
+- Simpan daftar proses: `pm2 save`
+- Aktifkan auto-start saat reboot: `pm2 startup` jalankan perintah persis yang dicetak (sekali saja)
+- Cek: `pm2 status` / `pm2 logs keys-pool`
 
 **Opsi C: launchd macOS (tanpa menginstall apa pun).** Simpan file `com.franskbarek.keys-pool.plist` di `~/Library/LaunchAgents/`:
 - Ganti `{NAMA_USER}`, `{FOLDER_SKRIP}`, dan `{PENGGANTI_NODE}` (path `node` hasil `which node`) sesuai milikmu.
@@ -249,11 +249,11 @@ Urut dari **Langkah 1** sampai **Langkah 8** - detail perintah persis untuk Wind
 
 ## 🧩 2. MCP (tools tambahan)
 
-Bagian utama kedua dari project ini. **MCP (Model Context Protocol)** memberi agent "tools tambahan" - seperti aplikasi baru yang bisa dipanggil. Dengan MCP, agent bisa buka browser, akses GitHub, query database, mengedit media, dan banyak lagi.
+Bagian utama kedua dari project ini. **MCP (Model Context Protocol)** memberi agent "tools tambahan" - seperti aplikasi baru yang bisa dipanggil. Dengan MCP, agent bisa akses file atau folder di lokal komputer, buka browser, akses GitHub, query database, mengedit media, dan banyak lagi.
 
 ### Kasus umum penggunaan
 
-Berkat MCP, agent bisa melakukan banyak pekerjaan harian:
+Berkat MCP, agent bisa melakukan banyak hal:
 
 | Kasus | Contoh yang bisa kamu minta |
 |---|---|
@@ -322,13 +322,13 @@ Ini **opsional**: kalau kamu tidak menulis bahasa tertentu, tidak perlu pasang a
 
 ---
 
-## 🧰 4. Yang harus disiapkan (dasar)
+## 🧰 4. Yang harus disiapkan
 
-Dasar-dasar yang perlu kamu kenal dulu:
+Basic yang perlu kamu kenal dulu:
 
 | Hal | Apa itu (versi sederhana) | Gimana rasanya di Opencode Agent |
 |---|---|---|
-| **Model gratis** | **Big Pickle (Opencode Zen)** - model resmi opencode, gratis (tetap butuh API key Zen) | langsung bisa dipakai setelah ada key Zen |
+| **Model** | **Big Pickle (Opencode Zen)** - model resmi opencode, gratis (tetap butuh API key Zen) | langsung bisa dipakai setelah ada key Zen |
 | **MCP** | "Tools tambahan" - memberi agent kemampuan baru (buka browser, akses GitHub, query database) | agent bisa menjalankan perintah dan mengakses data eksternal |
 | **LSP** | "Pemeriksa" bahasa program - seperti *spell checker* di Word, tapi untuk kode | agent otomatis tahu kalau ada error/warning di file yang kamu buka |
 | **API Key** | "Kartu akses" untuk layanan AI (Claude, OpenAI, Gemini, dsb.) | agent bisa memakai beberapa provider AI sekaligus |
@@ -337,9 +337,9 @@ Untuk failover, kamu butuh **Node.js ≥ 20** dan **opencode (CLI)**. Tidak perl
 
 ### Memahami isi file config `opencode.json`
 
-Satu-satunya file yang benar-benar perlu kamu pahami. Contoh isinya (lengkap) ada di **Bagian 5** panduan sistem operasi kamu. Ini arti tiap kuncinya:
+Satu-satunya file yang benar-benar perlu kamu pahami. Contoh isinya (lengkap) ada di **Bagian 5** panduan sistem operasi kamu. Ini arti tiap key-nya:
 
-| Kunci | Apa artinya |
+| Key | Apa artinya |
 |---|---|
 | `"$schema"` | Alamat skema JSON. Fungsinya biar editor bisa kasih saran & peringatan saat kamu menulis file. Opsional. |
 | `"model"` | Model bawaan yang dipakai opencode. Formatnya `providerId/modelId` - jadi `zen-proxy/big-pickle` = provider `zen-proxy`, model `big-pickle`. |
@@ -362,7 +362,7 @@ Satu-satunya file yang benar-benar perlu kamu pahami. Contoh isinya (lengkap) ad
 | `"lsp"."<bahasa>"."extensions"` | Ekstensi file yang memicu tool tersebut. |
 | `"lsp"."<bahasa>"."disabled"` | Berbeda dengan MCP: LSP memakai `"disabled"`, bukan `"enabled"`. `false` = aktif, `true` = mati. |
 
-> Secara umum, opencode bisa membaca **lebih dari satu file config** (global, per project, dsb.) dan hasilnya **digabung** - bukan digantikan. Kunci yang sama di file berprioritas lebih tinggi yang menang. Setup ini cukup memakai file global `~/.config/opencode/opencode.json` saja.
+> Secara umum, opencode bisa membaca **lebih dari satu file config** (global, per project, dsb.) dan hasilnya **digabung** - bukan digantikan. Key yang sama di file berprioritas lebih tinggi yang menang. Setup ini cukup memakai file global `~/.config/opencode/opencode.json` saja.
 
 ---
 
@@ -370,13 +370,13 @@ Satu-satunya file yang benar-benar perlu kamu pahami. Contoh isinya (lengkap) ad
 
 Pilih salah satu di bawah ini. Detail langkahnya **sudah dipisah** agar tidak membingungkan.
 
-### 🪟 Windows
+### Windows
 
 📄 → **[Buka panduan lengkap Setup Windows](docs/windows/SETUP.md)**
 
 Berisi: **Bagian 1 = Failover multi API key (prioritas)**, lalu MCP (Bagian 5), LSP opsional (Bagian 6), verifikasi, dan perbaikan jika ada masalah.
 
-### 🍎 macOS
+### macOS
 
 📄 → **[Buka panduan lengkap Setup macOS](docs/mac/SETUP.md)**
 
@@ -403,13 +403,13 @@ Total waktu: sekitar **15-30 menit** per komputer.
 
 ## Gambaran singkat istilah
 
-Penasaran apa maksud kata-kata yang sering muncul? Ini versi ramah-nya:
+Penasaran apa maksud istilah-istilah yang sering muncul? Ini versi ramah-nya:
 
 - **LSP (Language Server Protocol)** - kesepakatan cara editor dan "si pemeriksa bahasa" saling bicara. Hasilnya: deteksi error, saran perbaikan, go-to-definition. Bedanya di Opencode Agent: info itu dipakai si *agent* (AI) untuk membantu memperbaiki kode.
 - **MCP (Model Context Protocol)** - kesepakatan cara AI memakai tools eksternal (browser, GitHub, database) tanpa perlu dibangun khusus satu-satu. Analogi: satu jenis "colokan universal" untuk banyak perangkat.
 - **AI Agent** - program yang memakai AI untuk bekerja sendiri menyelesaikan tugas, menggunakan tool seperti membuka file, menjalankan perintah, sampai mengedit kode. Contoh sehari-hari: menulis kode, mencari info dari file, membuka website, meringkas dokumen, dan mengelola file.
 - **API Key** - kata sandi khusus agar aplikasi boleh memakai layanan AI tertentu (contoh: Claude dari Anthropic, ChatGPT dari OpenAI, Gemini dari Google).
-- **Environment variable** - "kotak catatan" sistem operasi tempat menyimpan pengaturan (di Windows: System Properties; di macOS: file `~/.zshrc`).
+- **Environment variable** - "wadah catatan" sistem operasi tempat menyimpan pengaturan (di Windows: System Properties; di macOS: file `~/.zshrc`).
 - **opencode.json** - file pengaturan utama Opencode Agent. Satu file ini mengatur semua: model, MCP, dan (opsional) LSP.
 
 Jika ada langkah yang terasa tersangkut, lihat bagian **"Troubleshooting"** di dokumen masing-masing sistem operasi.
