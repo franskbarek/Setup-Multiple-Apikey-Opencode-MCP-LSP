@@ -117,6 +117,37 @@ Supaya keputusan di atas jelas, ini catatan perbandingan saya:
 - **Streaming**: SSE `chat/completions` diteruskan byte-by-byte agar token tetap muncul langsung
 - **Opsi CLI**: `--port`, `--keys-file`, `--dry-run`, `--reset-cooldowns`
 
+### Cara kerja isi file `keys-pool-server.js` (step by step)
+
+File ini satu-satunya yang "menjalankan" konsep failover. Alur yang dikerjakan kodenya dari atas ke bawah:
+
+**1. Persiapan (baris 18-33).** Hanya memakai modul inti Node.js (`http`, `https`, `fs`, `path`) - tidak ada dependency yang perlu diinstall. Lalu menetapkan konstanta: port `8765`, host `127.0.0.1`, upstream `https://opencode.ai/zen/v1`, dan lokasi file state `cooldowns.json`.
+
+**2. Baca argumen CLI (baris 55-70).** Memproses `--port`, `--host`, `--keys-file`, `--dry-run`, `--reset-cooldowns`. `--help` menampilkan bantuan lewat fungsi `usage()`.
+
+**3. Muat daftar key (baris 82-90).** Membaca `keys.env`. Tiap baris di-trim; baris kosong dan yang diawali `#` dilewati; duplikat dibuang. Urutan baris = prioritas. Kalau tidak ada key sama sekali, skrip berhenti dengan pesan "Tidak ada key valid".
+
+**4. Muat state cooldown (baris 92-99).** Kalau `cooldowns.json` sudah ada dari run sebelumnya, dibaca - jadi key yang sedang menunggu tetap menunggu walau server di-restart.
+
+**5. Mode khusus (baris 297-327).** `--dry-run` → tampilkan jumlah key, urutan prioritas, dan cooldown aktif, lalu keluar tanpa menjalankan server. `--reset-cooldowns` → kosongkan `cooldowns.json`, semua key kembali aktif.
+
+**6. Jalankan server (baris 329-369).** Mendengarkan request di `127.0.0.1:8765`.
+- `/health` → jawab `{ "ok": true }`.
+- `/status` → daftar tiap key: status `active`/`cooldown`, sisa detik cooldown, jumlah request, dan berapa kali kena kuota.
+- request model (misal `POST /v1/chat/completions`) → dilempar ke fungsi `forwarded()`.
+
+**7. Inti rotasi - fungsi `forwarded()` (baris 215-269):**
+- (a) Kalau sudah mencoba lebih dari jumlah key → semua dalam cooldown → balas `429` dengan pesan ramah.
+- (b) `pickKey()` memilih key urutan teratas yang **tidak** sedang pending (baris 133-140).
+- (c) Bangun request ke upstream: path `/v1/...` diubah jadi `/zen/v1/...` (baris 171-174), header `authorization: Bearer <key>` disuntikkan (baris 231).
+- (d) Kirim ke `https://opencode.ai/zen/v1`.
+- (e) Respons masuk:
+  - **429/402** → `markCooldown()` mencatat key itu pending (durasi dari header `Retry-After`, kalau tidak ada: 30 detik untuk 429, 10 menit untuk 402), lalu `forwarded()` dipanggil ulang **dengan key berikutnya** (baris 245-250). opencode tidak sadar apa pun.
+  - **selain itu** → jumlah request dicatat, status + header diteruskan (header `transfer-encoding`/`content-length`/`connection` dibuang biar streaming bersih), dan body (termasuk SSE token) dikirim ke opencode (baris 252-254).
+- (f) Gagal terhubung ke upstream → balas `502` dengan pesan (baris 258-266).
+
+**8. Menjaga state tetap tersimpan (baris 104-122, 361-362).** Setiap ada perubahan cooldown, `cooldowns.json` disimpan setelah jeda 500 ms (biar tidak boros disk). Saat server dimatikan (Ctrl+C / SIGTERM), state dipaksa disimpan dulu supaya tidak hilang.
+
 ### Konfigurasi opencode (yang saya siapkan)
 
 Cukup tambah **satu** custom provider (bukan satu per key):
