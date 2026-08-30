@@ -4,14 +4,14 @@
 > 🔺 **Prioritas dokumen ini:**
 > 1. **🔁 Failover multi API key (Bagian 1) = prioritas** - konsep inti project ini. Banyak key otomatis berganti saat kuota habis, tanpa pindah model.
 > 2. **🧩 MCP (Bagian 5) = utama** - tools tambahan untuk agent (browser, GitHub, database, media, dsb.).
-> 3. **🪶 LSP (Bagian 6) = opsional** - pemeriksa bahasa. Tetap ada caranya.
+> 3. **🕵️‍♂️ LSP (Bagian 6) = opsional** - pemeriksa bahasa. Tetap ada caranya.
 
 Jika ini pertama kali membaca, mulai dari [README utama](../../README.md) untuk paham konsepnya dengan bahasa sederhana.
 
-## Daftar Isi
+## 📌 Isi dokumen ini
 
 - [1. Failover multi API key (prioritas)](#1-failover-multi-api-key-prioritas)
-- [2. Yang Perlu Disiapkan](#2-yang-perlu-disiapkan)
+- [2. Setup Failover + MCP (Prefer sesuai kebutuhan masing-masing)](#2-setup-failover--mcp-prefer-sesuai-kebutuhan-masing-masing)
 - [3. Install Tools di macOS](#3-install-tools-di-macos)
 - [4. Mengatur API Key & GitHub Token (opsional)](#4-mengatur-api-key--github-token-opsional)
 - [5. Membuat File Konfigurasi (MCP + failover)](#5-membuat-file-konfigurasi-mcp--failover)
@@ -51,7 +51,8 @@ Jika ini pertama kali membaca, mulai dari [README utama](../../README.md) untuk 
 
 > ⚠️ Bagian ini butuh **Node.js ≥ 20** dan **opencode** terinstall. Kalau belum ada, kerjakan **Bagian 2 & 3** dulu (sekitar 10 menit), lalu kembali ke sini.
 
-**Cara pasang - ikuti urut dari Langkah 1 sampai Langkah 8:**
+
+## Cara pasang - ikuti Langkah 1-8 berikut:
 
 #### Langkah 1 - Siapkan folder
 
@@ -63,7 +64,7 @@ mkdir -p ~/opencode-failover
 
 #### Langkah 2 - Salin skrip
 
-Salin file `keys-pool-server.js` dari folder paling atas repo ini ke folder di Langkah 1. Boleh lewat Finder: copy file lalu paste ke folder `opencode-failover` di home.
+Salin file `keys-pool-server.js` dari root direktori repo ini ke folder di Langkah 1. Boleh lewat Finder: copy file lalu paste ke folder `opencode-failover` di home.
 
 #### Langkah 3 - Isi daftar key
 
@@ -71,10 +72,10 @@ Buat file `keys.env` di folder yang sama (folder `opencode-failover`). Isi **sat
 
 ```
 sk-Romxxx....
-sk-Romxxx....
+sk-oieHxx....
 ```
 
-Baris kosong dan baris yang diawali `#` diabaikan. Simpan. (Jangan pernah unggah `keys.env` ke mana pun.)
+Baris kosong dan baris yang diawali `#` (komentar) diabaikan. Simpan. (Jangan pernah unggah `keys.env` ke mana pun.)
 
 #### Langkah 4 - Cek dulu, tanpa menjalankan apa pun
 
@@ -109,7 +110,7 @@ Harus muncul daftar key dengan status `active`. Kalau ada key yang sedang menung
 
 #### Langkah 7 - Arahkan opencode ke proxy
 
-Buka file `opencode.json` (lokasinya di Bagian 5). Kalau belum ada, buat dengan isi minimal berikut:
+Buka file `opencode.json` (lokasinya di Bagian 5). Kalau belum ada, buat dengan isi minimal seperti contoh berikut:
 
 ```jsonc
 {
@@ -149,7 +150,7 @@ Key asli **tidak pernah masuk file ini** - key dipegang `keys.env` oleh proxy.
 
 ---
 
-## 2. Yang Perlu Disiapkan
+## 2. Setup Failover + MCP (Prefer sesuai kebutuhan masing-masing)
 
 Untuk failover + MCP, kebutuhan diprioritaskan: **pasang dulu yang wajib (Node.js & Git), sisanya opsional.** Persiapan bahasa pemrograman (LSP, Bagian 6) **TIDAK prioritas** - cukup pasang bahasa yang kamu tulis, sisanya boleh dilewati.
 
@@ -403,7 +404,7 @@ Jika folder `.config` belum ada, buat dulu. File ini adalah file yang sama denga
 }
 ```
 
-> 🔎 **Penjelasan tiap kunci config** (`model`, `small_model`, `provider`, `mcp`, `lsp`, dsb.) ada di [README - Memahami isi file config opencode.json](../../README.md#memahami-isi-file-config-opencodejson).
+> 🔎 **Penjelasan tiap key config** (`model`, `small_model`, `provider`, `mcp`, `lsp`, dsb.) ada di [README - Memahami isi file config opencode.json](../../README.md#memahami-isi-file-config-opencodejson).
 
 > **Catatan `enabled`:** setiap MCP server punya flag `"enabled": true/false` - ganti nilainya untuk mengaktifkan/menonaktifkan server tertentu tanpa harus menghapusnya dari file. Contoh: `postgres` dan `sqlite` sengaja `false` karena butuh database; jika suatu saat mau dipakai, cukup ubah jadi `true`.
 

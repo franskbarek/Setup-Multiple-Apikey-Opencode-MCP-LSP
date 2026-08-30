@@ -5,9 +5,9 @@ Project ini berfokus pada **dua hal utama** dan satu hal opsional:
 
 | Prioritas | Bagian | Wajib? |
 |---|---|---|
-| 🔁 1 | **Failover multi API Key** - konsep inti project ini. Saat kuota satu key habis, otomatis berganti ke key berikutnya tanpa pindah model. | **Paling wajib** |
+| 🔁 1 | **Failover multi API Key** - konsep inti project ini. Saat kuota satu apikey habis, otomatis berganti ke apikey berikutnya tanpa pindah model. | **Paling wajib** |
 | 🧩 2 | **MCP** - tools tambahan untuk agent (browser, GitHub, database, media, dsb.). | Utama |
-| 🪶 3 | **LSP** - pemeriksa bahasa. Caranya tetap saya tunjukkan, tapi tidak wajib. | Opsional |
+| 🕵️‍♂️ 3 | **LSP** - pemeriksa bahasa. Caranya tetap saya tunjukkan, tapi tidak wajib. | Opsional |
 
 Dokumen ini ditulis dengan bahasa sederhana. Cukup ikuti langkahnya.
 
@@ -25,15 +25,15 @@ Dokumen ini ditulis dengan bahasa sederhana. Cukup ikuti langkahnya.
 
 ---
 
-## 🔁 1. Failover multi API Key (prioritas)
+## 🔁 1. Failover multi API key (prioritas)
 
-Di setup ini saya memakai **lebih dari satu API key untuk layanan yang sama** - contohnya beberapa akun **OpenCode Zen**, dan tiap akun dapat model gratis **Big Pickle** dengan kuota masing-masing. Masalahnya: kalau kuota satu key habis, opencode hanya mencoba terus dan mentok di error. Supaya kamu (dan tim saya) tidak perlu pindah key secara manual, saya sudah implementasikan konsep berikut: **key berpindah otomatis tanpa mengubah model** - dan sudah berjalan di setup ini.
+Di setup ini saya memakai **lebih dari satu API key untuk layanan yang sama** - contohnya beberapa akun **OpenCode Zen**, dan tiap akun dapat model gratis **Big Pickle** dengan kuota masing-masing. Masalahnya: kalau kuota satu apikey habis, opencode hanya mencoba terus dan mentok di error. Supaya kamu (dan tim saya) tidak perlu pindah key secara manual, saya sudah implementasikan konsep berikut: **apikey berpindah otomatis tanpa mengubah model** - dan sudah berjalan di setup ini.
 
 ### Kenapa saya tidak sekadar pakai plugin fallback?
 
-Banyak orang menyarankan plugin fallback (contoh `@razroo/opencode-model-fallback`) yang pindah ke model lain saat limit. Plugin itu memang juara kalau tujuannya **pindah model** di tengah sesi (misal Big Pickle → Claude). Tapi untuk kasus **banyak key pada provider yang sama**, saya pribadi menilai plugin seperti ini kurang sesuai:
+Banyak sumber yang menyarankan agar menggunakan plugin fallback (salah satu contoh `@razroo/opencode-model-fallback`) yang pindah ke model lain saat limit. Plugin itu memang juara kalau tujuannya **pindah model** di tengah sesi (misal Big Pickle → Claude). Tapi untuk kasus **banyak apikey pada provider yang sama**, saya pribadi menilai plugin seperti ini kurang sesuai:
 
-- key model `opencode/*` terbaca dari `auth.json`, **bukan** dari environment variable - jadi plugin/wrapper tidak bisa sekadar mengganti key
+- apikey model `opencode/*` terbaca dari `auth.json`, **bukan** dari environment variable - jadi plugin/wrapper tidak bisa sekadar mengganti apikey
 - supaya key bisa dibedakan, tiap key harus dibuatkan "custom provider" sendiri di config
 - deteksinya lewat error SDK, bukan status HTTP asli dari server
 
@@ -41,7 +41,7 @@ Keputusan saya: untuk kasus seperti ini yang tepat bukan plugin, melainkan **key
 
 ### Konsep yang saya pilih: key-pool proxy lokal
 
-Satu proxy kecil yang saya jalankan di komputer, terdapat di antara opencode dan server Zen. opencode hanya berkomunikasi ke proxy, proxy yang memegang daftar key dan memilih key mana yang dipakai setiap request.
+Satu proxy kecil yang saya jalankan di komputer, ditempatkan di antara opencode dan server Zen. opencode hanya berkomunikasi ke proxy, proxy yang memegang daftar apikey dan memilih key mana yang dipakai setiap request.
 
 ```
 opencode (TUI / opencode run / MCP / curl)
@@ -83,13 +83,13 @@ opencode (TUI / opencode run / MCP / curl)
 
 #### Penjelasan flowchart
 
-1. **Request masuk** - opencode mengirim permintaan ke proxy (misal kita mulai dari key #1, key paling atas di `keys.env`).
-2. **Terus** - proxy meneruskan request itu ke `https://opencode.ai/zen/v1` memakai key #1.
-3. **Respons normal** - kalau key #1 sehat, jawaban (termasuk SSE yang mengalir token demi token) diteruskan langsung ke opencode. Selesai.
-4. **Kuota habis / key invalid** - kalau upstream membalas `429`/`402` (kuota key #1 habis), proxy menandai key #1 sebagai *pending* selama durasi tertentu (pakai `Retry-After` kalau dikirim server). Kalau yang keluar `401`/`403` (key #1 invalid), key #1 justru ditandai *mati* selama 24 jam - karena menunggu 30 detik tidak akan menyembuhkannya.
-5. **Ganti key** - karena key #1 pending, proxy otomatis mencoba key berikutnya di daftar (key #2, #3, dst.).
-6. **Semua pending** - kalau semua key sedang pending, proxy balas `429` + pesan yang mudah dibaca ke opencode, misal *"Semua key Zen sedang dalam cooldown, coba lagi ~2 menit lagi."*
-7. **Pulih otomatis** - setelah durasi pending habis, key kembali aktif dan dipakai lagi. Karena state disimpan di `cooldowns.json`, cooldown ini **tetap berlaku walau komputer di-restart**.
+1. **Request masuk** - opencode mengirim permintaan ke proxy (misal kita mulai dari apikey #1, apikey paling atas di `keys.env`).
+2. **Terus** - proxy meneruskan request itu ke `https://opencode.ai/zen/v1` memakai apikey #1.
+3. **Respons normal** - kalau apikey #1 sehat, jawaban (termasuk SSE yang mengalir token demi token) diteruskan langsung ke opencode. Selesai.
+4. **Kuota habis / apikey invalid** - kalau upstream membalas `429`/`402` (kuota apikey #1 habis), proxy menandai apikey #1 sebagai *pending* selama durasi tertentu (pakai `Retry-After` kalau dikirim server). Kalau yang keluar `401`/`403` (key #1 invalid), key #1 justru ditandai *mati* selama 24 jam - karena menunggu 30 detik tidak akan menyembuhkannya.
+5. **Ganti apikey** - karena apikey #1 pending, proxy otomatis mencoba apikey berikutnya di daftar (apikey #2, #3, dst.).
+6. **Semua pending** - kalau semua apikey sedang pending, proxy balas `429` + pesan yang mudah dibaca ke opencode, misal *"Semua key Zen sedang dalam cooldown, coba lagi ~2 menit lagi."*
+7. **Pulih otomatis** - setelah durasi pending habis, apikey kembali aktif dan dipakai lagi. Karena state disimpan di `cooldowns.json`, cooldown ini **tetap berlaku walau komputer di-restart**.
 
 Karena logika ini ada di level HTTP, satu konsep ini langsung berlaku untuk **TUI, `opencode run`, MCP, dan curl** sekaligus - tanpa menyentuh model yang dipakai.
 
@@ -305,7 +305,7 @@ Perbandingan lengkap semua server media ada di **Bagian 5** panduan sistem opera
 
 ---
 
-## 🪶 3. LSP (opsional - tetap ada caranya)
+## 🕵️‍♂️ 3. LSP (opsional - tetap ada caranya)
 
 **LSP (Language Server Protocol)** adalah "pemeriksa" bahasa program - seperti *spell checker* di Word, tapi untuk kode. Saat kamu membuka file, agent otomatis tahu kalau ada error/warning.
 
@@ -337,9 +337,9 @@ Untuk failover, kamu butuh **Node.js ≥ 20** dan **opencode (CLI)**. Tidak perl
 
 ### Memahami isi file config `opencode.json`
 
-Satu-satunya file yang benar-benar perlu kamu pahami. Contoh isinya (lengkap) ada di **Bagian 5** panduan sistem operasi kamu. Ini arti tiap key-nya:
+Satu-satunya file yang benar-benar perlu kamu pahami. Contoh isinya (lengkap) ada di **Bagian 5** panduan sistem operasi kamu:
 
-| Key | Apa artinya |
+| Field | Apa artinya |
 |---|---|
 | `"$schema"` | Alamat skema JSON. Fungsinya biar editor bisa kasih saran & peringatan saat kamu menulis file. Opsional. |
 | `"model"` | Model bawaan yang dipakai opencode. Formatnya `providerId/modelId` - jadi `zen-proxy/big-pickle` = provider `zen-proxy`, model `big-pickle`. |
@@ -362,7 +362,7 @@ Satu-satunya file yang benar-benar perlu kamu pahami. Contoh isinya (lengkap) ad
 | `"lsp"."<bahasa>"."extensions"` | Ekstensi file yang memicu tool tersebut. |
 | `"lsp"."<bahasa>"."disabled"` | Berbeda dengan MCP: LSP memakai `"disabled"`, bukan `"enabled"`. `false` = aktif, `true` = mati. |
 
-> Secara umum, opencode bisa membaca **lebih dari satu file config** (global, per project, dsb.) dan hasilnya **digabung** - bukan digantikan. Key yang sama di file berprioritas lebih tinggi yang menang. Setup ini cukup memakai file global `~/.config/opencode/opencode.json` saja.
+> Secara umum, opencode bisa membaca **lebih dari satu file config** (global, per project, dsb.) dan hasilnya **digabung** - bukan digantikan. komponen yang sama di file berprioritas lebih tinggi yang menang. Setup ini cukup memakai file global `~/.config/opencode/opencode.json` saja.
 
 ---
 
@@ -410,7 +410,7 @@ Penasaran apa maksud istilah-istilah yang sering muncul? Ini versi ramah-nya:
 - **AI Agent** - program yang memakai AI untuk bekerja sendiri menyelesaikan tugas, menggunakan tool seperti membuka file, menjalankan perintah, sampai mengedit kode. Contoh sehari-hari: menulis kode, mencari info dari file, membuka website, meringkas dokumen, dan mengelola file.
 - **API Key** - kata sandi khusus agar aplikasi boleh memakai layanan AI tertentu (contoh: Claude dari Anthropic, ChatGPT dari OpenAI, Gemini dari Google).
 - **Environment variable** - "wadah catatan" sistem operasi tempat menyimpan pengaturan (di Windows: System Properties; di macOS: file `~/.zshrc`).
-- **opencode.json** - file pengaturan utama Opencode Agent. Satu file ini mengatur semua: model, MCP, dan (opsional) LSP.
+- **opencode.json** - file pengaturan utama Opencode Agent. Satu file ini mengatur semua: model, MCP, dan LSP (opsional).
 
 Jika ada langkah yang terasa tersangkut, lihat bagian **"Troubleshooting"** di dokumen masing-masing sistem operasi.
 

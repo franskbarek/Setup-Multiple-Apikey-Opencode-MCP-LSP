@@ -4,7 +4,7 @@
 > 🔺 **Prioritas dokumen ini:**
 > 1. **🔁 Failover multi API key (Bagian 1) = prioritas** - konsep inti project ini. Banyak key otomatis berganti saat kuota habis, tanpa pindah model.
 > 2. **🧩 MCP (Bagian 5) = utama** - tools tambahan untuk agent (browser, GitHub, database, media, dsb.).
-> 3. **🪶 LSP (Bagian 6) = opsional** - pemeriksa bahasa. Tetap ada caranya.
+> 3. **🕵️‍♂️ LSP (Bagian 6) = opsional** - pemeriksa bahasa. Tetap ada caranya.
 
 Jika ini pertama kali membaca, mulai dari [README utama](../../README.md) untuk paham konsepnya dengan bahasa sederhana.
 
@@ -14,10 +14,10 @@ Jika ini pertama kali membaca, mulai dari [README utama](../../README.md) untuk 
 >
 > **Kapan wajib Git Bash?** Saat mengatur API Key lewat environment variable (Bagian 4). Perintah `winget`, `npm`, `npx`, dan `opencode` tetap bisa dijalankan dari terminal mana pun.
 
-## Daftar Isi
+## 📌 Isi dokumen ini
 
 - [1. Failover multi API key (prioritas)](#1-failover-multi-api-key-prioritas)
-- [2. Yang Perlu Disiapkan](#2-yang-perlu-disiapkan)
+- [2. Setup Failover + MCP (Prefer sesuai kebutuhan masing-masing)](#2-setup-failover--mcp-prefer-sesuai-kebutuhan-masing-masing)
 - [3. Install Tools di Windows](#3-install-tools-di-windows)
 - [4. Mengatur API Key & GitHub Token (opsional)](#4-mengatur-api-key--github-token-opsional)
 - [5. Membuat File Konfigurasi (MCP + failover)](#5-membuat-file-konfigurasi-mcp--failover)
@@ -57,7 +57,8 @@ Jika ini pertama kali membaca, mulai dari [README utama](../../README.md) untuk 
 
 > ⚠️ Bagian ini butuh **Node.js ≥ 20** dan **opencode** terinstall. Kalau belum ada, kerjakan **Bagian 2 & 3** dulu (sekitar 10 menit), lalu kembali ke sini.
 
-**Cara pasang - ikuti urut dari Langkah 1 sampai Langkah 8:**
+
+## Cara pasang - ikuti Langkah 1-8 berikut:
 
 #### Langkah 1 - Siapkan folder
 
@@ -69,7 +70,7 @@ mkdir -p /c/Users/frans/opencode-failover
 
 #### Langkah 2 - Salin skrip
 
-Salin file `keys-pool-server.js` dari folder paling atas repo ini ke folder di Langkah 1. Boleh lewat file manager: copy file lalu paste ke `C:\Users\frans\opencode-failover`.
+Salin file `keys-pool-server.js` dari root folder repo ini ke folder di Langkah 1. Boleh lewat file manager: copy file lalu paste ke `C:\Users\frans\opencode-failover`.
 
 #### Langkah 3 - Isi daftar key
 
@@ -77,10 +78,10 @@ Buat file `keys.env` di folder yang sama (folder `opencode-failover`). Isi **sat
 
 ```
 sk-Romxxx....
-sk-Romxxx....
+sk-oieHxx....
 ```
 
-Baris kosong dan baris yang diawali `#` diabaikan. Simpan. (Jangan pernah unggah `keys.env` ke mana pun.)
+Baris kosong dan baris yang diawali `#` (komentar) diabaikan. Simpan. (Jangan pernah unggah `keys.env` ke mana pun.)
 
 #### Langkah 4 - Cek dulu, tanpa menjalankan apa pun
 
@@ -111,11 +112,11 @@ Buka **jendela Git Bash kedua**, lalu jalankan:
 curl http://127.0.0.1:8765/status
 ```
 
-Harus muncul daftar key dengan status `active`. Kalau ada key yang sedang menunggu, statusnya `cooldown` dengan hitungan mundur.
+Harus muncul daftar apikey dengan status `active`. Kalau ada apikey yang sedang menunggu, statusnya `cooldown` dengan hitungan mundur.
 
 #### Langkah 7 - Arahkan opencode ke proxy
 
-Buka file `opencode.json` (lokasinya di Bagian 5). Kalau belum ada, buat dengan isi minimal berikut:
+Buka file `opencode.json` (lokasinya di Bagian 5). Kalau belum ada, buat dengan isi minimal seperti contoh berikut:
 
 ```jsonc
 {
@@ -134,20 +135,20 @@ Buka file `opencode.json` (lokasinya di Bagian 5). Kalau belum ada, buat dengan 
 }
 ```
 
-Key asli **tidak pernah masuk file ini** - key dipegang `keys.env` oleh proxy.
+Apikey asli **tidak pernah masuk file ini** - apikey dipegang `keys.env` oleh proxy.
 
 #### Langkah 8 - Restart & verifikasi
 
 1. Tutup opencode, lalu buka lagi.
 2. Ajukan satu pertanyaan - kalau dijawab, berarti proxy sudah jalan.
-3. Saat kuota key #1 habis, cek `/status` (Langkah 6): key #1 berubah jadi `cooldown`, dan permintaan berikutnya otomatis memakai key #2.
+3. Saat kuota apikey #1 habis, cek `/status` (Langkah 6): apikey #1 berubah jadi `cooldown`, dan permintaan berikutnya otomatis memakai apikey #2.
 
 **Kalau ada masalah:**
 
 | Masalah | Solusi |
 |---|---|
 | `zen-proxy` tidak jalan | Pastikan Langkah 5 masih berjalan, dan model memakai `zen-proxy/big-pickle` di Langkah 7 |
-| Semua key `cooldown` | Tunggu hitungan mundur selesai, atau reset: `node keys-pool-server.js --reset-cooldowns` |
+| Semua apikey `cooldown` | Tunggu hitungan mundur selesai, atau reset: `node keys-pool-server.js --reset-cooldowns` |
 
 **Alternatif (tanpa membangun ini):** `@razroo/opencode-model-fallback` untuk pindah model, atau `oswap`/`opencode-go-multi-auth` sebagai proxy siap pakai - bandingkan di README.
 
@@ -155,7 +156,7 @@ Key asli **tidak pernah masuk file ini** - key dipegang `keys.env` oleh proxy.
 
 ---
 
-## 2. Yang Perlu Disiapkan
+## 2. Setup Failover + MCP (Prefer sesuai kebutuhan masing-masing)
 
 Untuk failover + MCP, kebutuhan diprioritaskan: **pasang dulu yang wajib (Node.js & Git), sisanya opsional.** Persiapan bahasa pemrograman (LSP, Bagian 6) **TIDAK prioritas** - cukup pasang bahasa yang kamu tulis, sisanya boleh dilewati.
 
@@ -250,21 +251,21 @@ winget install --id ImageMagick.ImageMagick -e
 
 ## 4. Mengatur API Key & GitHub Token (opsional)
 
-Model gratis **Big Pickle (Opencode Zen)** tetap butuh API key - tapi gratis. Ambil key-nya satu per satu dari akun Zen kamu (beberapa akun = beberapa key untuk failover, ditaruh di `keys.env` Bagian 1).
+Model gratis **Big Pickle (Opencode Zen)** tetap butuh apikey - tapi gratis. Ambil apikey-nya satu per satu dari akun Zen kamu (beberapa akun = beberapa apikey untuk failover, ditaruh di `keys.env` Bagian 1).
 
-### 4.1 Dapatkan API key Zen
+### 4.1 Dapatkan apikey Zen
 
-Buka <https://opencode.ai/zen>, login, dan salin API key-nya. Kalau pakai failover (Bagian 1), kumpulkan beberapa key ke `keys.env`. Kalau tidak, daftarkan satu key lewat:
+Buka <https://opencode.ai/zen>, login, dan salin apikey-nya. Kalau pakai failover (Bagian 1), kumpulkan beberapa apikey ke `keys.env`. Kalau tidak, daftarkan satu apikey lewat:
 
 ```bash
 opencode auth login
 ```
 
-Pilih **OpenCode Zen** di daftar provider, lalu tempel API key yang sudah kamu salin.
+Pilih **OpenCode Zen** di daftar provider, lalu tempel apikey yang sudah kamu salin.
 
 ### 4.2 Opsional - login untuk provider lain
 
-API key provider berbayar (Anthropic, OpenAI, Google, dsb.) baru dibutuhkan **hanya jika** kamu ingin menambah provider lain selain yang gratis.
+Apikey provider berbayar (Anthropic, OpenAI, Google, dsb.) baru dibutuhkan **hanya jika** kamu ingin menambah provider lain selain yang gratis.
 
 ```bash
 opencode auth login
@@ -329,7 +330,7 @@ Jika folder/`.config` belum ada, buat dulu. File ini adalah file yang sama denga
         "baseURL": "http://127.0.0.1:8765/v1",
         "apiKey": "sk-proxy-dummy"
       },
-      "models": { "big-pickle": { "name": "Big Pickle (via key-pool proxy)" } }
+      "models": { "big-pickle": { "name": "Big Pickle (via apikey-pool proxy)" } }
     }
   },
 
@@ -405,11 +406,11 @@ Jika folder/`.config` belum ada, buat dulu. File ini adalah file yang sama denga
 }
 ```
 
-> 🔎 **Penjelasan tiap kunci config** (`model`, `small_model`, `provider`, `mcp`, `lsp`, dsb.) ada di [README - Memahami isi file config opencode.json](../../README.md#memahami-isi-file-config-opencodejson).
+> 🔎 **Penjelasan tiap field config** (`model`, `small_model`, `provider`, `mcp`, `lsp`, dsb.) ada di [README - Memahami isi file config opencode.json](../../README.md#memahami-isi-file-config-opencodejson).
 
 > **Catatan `enabled`:** setiap MCP server punya flag `"enabled": true/false` - ganti nilainya untuk mengaktifkan/menonaktifkan server tertentu tanpa harus menghapusnya dari file. Contoh: `postgres` dan `sqlite` sengaja `false` karena butuh database; jika suatu saat mau dipakai, cukup ubah jadi `true`.
 
-> **Catatan MCP media:** dua server di atas (`video` & `artificer`) **mati secara default** (`"enabled": false`) karena butuh tools & API key tambahan. Nyalakan hanya jika dibutuhkan (ubah jadi `true` lalu restart). Rinciannya di bawah.
+> **Catatan MCP media:** dua server di atas (`video` & `artificer`) **mati secara default** (`"enabled": false`) karena butuh tools & apikey tambahan. Nyalakan hanya jika dibutuhkan (ubah jadi `true` lalu restart). Rinciannya di bawah.
 
 ### context7 - MCP paling gampang
 
@@ -418,7 +419,7 @@ Mau merasakan MCP bekerja tanpa ribet? Pakai **`context7`** - sudah `"enabled": 
 Kenapa paling gampang:
 
 - **Tipe remote** - server-nya berjalan di cloud (`https://mcp.context7.com/mcp`), bukan proses lokal di komputermu
-- **Tanpa install** - tidak perlu `npx`/`uv`/`pip`, tidak perlu tools tambahan, tidak butuh API key
+- **Tanpa install** - tidak perlu `npx`/`uv`/`pip`, tidak perlu tools tambahan, tidak butuh apikey
 - **Cukup tempel config + restart** - langsung aktif saat opencode pertama dijalankan
 
 Perbandingan singkat dengan MCP lain di config:
@@ -429,7 +430,7 @@ Perbandingan singkat dengan MCP lain di config:
 | github | remote | tidak ada | GitHub token |
 | filesystem, memory | local | npx (dibuat otomatis) | tidak ada |
 | playwright | local | npx | `npx playwright install chromium` |
-| video, artificer | local | paket Python/Node | FFmpeg, ImageMagick, API key Gemini |
+| video, artificer | local | paket Python/Node | FFmpeg, ImageMagick, apikey Gemini |
 | postgres, sqlite | local | paket | server database |
 
 ### Perbandingan MCP server media
@@ -439,16 +440,16 @@ Semua server di tabel ini bekerja di **agent apa pun** (Opencode, Claude, Cursor
 | Server MCP | Kemampuan | Install | Catatan |
 |---|---|---|---|
 | **`mcp-video`** ⭐ rekomendasi | 91 tools: trim, merge, resize, crop, subtitle, transkripsi, normalisasi audio, color grading, repurposing shorts/reels | `uvx --from mcp-video mcp-video` | Free, via uv (sudah terinstall); butuh FFmpeg |
-| **`artificer`** <br>⚠️ pre-release | Generate/edit gambar (Gemini/Imagen/Nano Banana), video (Veo), musik (Lyria 3); edit gambar ImageMagick (57 tools); post-processing FFmpeg | `npx -y artificer-mcp` | Butuh FFmpeg + ImageMagick + API key Gemini (`GEMINI_API_KEY`) |
+| **`artificer`** <br>⚠️ pre-release | Generate/edit gambar (Gemini/Imagen/Nano Banana), video (Veo), musik (Lyria 3); edit gambar ImageMagick (57 tools); post-processing FFmpeg | `npx -y artificer-mcp` | Butuh FFmpeg + ImageMagick + apikey Gemini (`GEMINI_API_KEY`) |
 | kinocut | 196 tools video "guardrailed" (cek kualitas sebelum publish) | `uvx` | Alternatif mcp-video |
 | ffmpeg-mcp (dubnium0) | 40+ tools: video/audio plus streaming HLS/DASH/RTMP | Python | Butuh FFmpeg |
 | ffmpeg-mcp-video-editor | 38 tools: deteksi/tracking wajah, render timeline | Python + uv | Butuh FFmpeg |
 | mcpCut | Editor timeline sungguhan (MLT/FFmpeg), auto-caption, voiceover | Self-host (Python) / hosted | Multi-track editing |
 | VEMCP (video_editing_mcp) | Pipeline FFmpeg satu-pass, transkripsi Whisper | Python | Butuh FFmpeg |
-| m3cp | OpenAI multimodal: edit/inpaint gambar, STT, TTS, transformasi suara | Python | Butuh API key OpenAI |
-| mcp-openai-images-audio | Edit gambar via `gpt-image-2` | Python | Butuh API key OpenAI |
+| m3cp | OpenAI multimodal: edit/inpaint gambar, STT, TTS, transformasi suara | Python | Butuh apikey OpenAI |
+| mcp-openai-images-audio | Edit gambar via `gpt-image-2` | Python | Butuh apikey OpenAI |
 
-> `mcpCut`, `m3cp`, dan `mcp-openai-images-audio` tidak dimasukkan ke config utama karena butuh hosting sendiri / API key berbayar.
+> `mcpCut`, `m3cp`, dan `mcp-openai-images-audio` tidak dimasukkan ke config utama karena butuh hosting sendiri / apikey berbayar.
 
 > **Setelah menyimpan file ini, WAJIB quit & restart opencode** - konfigurasi hanya dibaca saat opencode dijalankan. Saat menyalakan server media, pastikan juga FFmpeg sudah terinstall (`ffmpeg -version`).
 
@@ -562,7 +563,7 @@ Tambahkan blok ini ke file `opencode.json` (file dari Bagian 5). Setiap entri me
 curl http://127.0.0.1:8765/status
 ```
 
-Harus muncul daftar key + statusnya (`active` / `cooldown`). Kalau kosong, pastikan `node keys-pool-server.js` masih berjalan (Bagian 1 Langkah 5).
+Harus muncul daftar apikey + statusnya (`active` / `cooldown`). Kalau kosong, pastikan `node keys-pool-server.js` masih berjalan (Bagian 1 Langkah 5).
 
 ### 7.2 Cek MCP servers tersambung
 
@@ -605,7 +606,7 @@ echo $ANTHROPIC_API_KEY
 | Masalah | Solusi |
 |---|---|
 | `zen-proxy` tidak jalan | Pastikan `node keys-pool-server.js` sedang berjalan (`curl http://127.0.0.1:8765/status`), `keys.env` terisi, dan `"model"` memakai `zen-proxy/big-pickle`. Reset pending: `node keys-pool-server.js --reset-cooldowns` |
-| Semua key `cooldown` | Tunggu hitungan mundur selesai, atau reset: `node keys-pool-server.js --reset-cooldowns` |
+| Semua apikey `cooldown` | Tunggu hitungan mundur selesai, atau reset: `node keys-pool-server.js --reset-cooldowns` |
 | `npx`/`uvx` tidak ditemukan | Pastikan Node.js & uv ada di PATH (`node -v`, `uv --version`). Jika tetap gagal, ganti command MCP menjadi: `["cmd", "/c", "npx", ...]` |
 | LSP `gopls`/`jdtls`/`rust` tidak aktif | LSP butuh `go`, `java`, `rust-analyzer`. Cek: `go version`, `java -version`, `rust-analyzer --version`. Restart terminal setelah install supaya PATH terbaca |
 | MCP server timeout | Tambah `"timeout": 30000` di entri server |
