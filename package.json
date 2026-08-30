@@ -2,6 +2,7 @@
   "name": "keys-pool-server",
   "version": "1.0.0",
   "private": true,
+  "license": "0BSD",
   "description": "Proxy rotasi multi API key OpenCode Zen dengan failover otomatis 429/402 dan deteksi key mati 401/403",
   "scripts": {
     "start": "node keys-pool-server.js",
