@@ -408,6 +408,7 @@ Penasaran apa maksud istilah-istilah yang sering muncul? Ini versi ramah-nya:
 - **LSP (Language Server Protocol)** - kesepakatan cara editor dan "si pemeriksa bahasa" saling bicara. Hasilnya: deteksi error, saran perbaikan, go-to-definition. Bedanya di Opencode Agent: info itu dipakai si *agent* (AI) untuk membantu memperbaiki kode.
 - **MCP (Model Context Protocol)** - kesepakatan cara AI memakai tools eksternal (browser, GitHub, database) tanpa perlu dibangun khusus satu-satu. Analogi: satu jenis "colokan universal" untuk banyak perangkat.
 - **AI Agent** - program yang memakai AI untuk bekerja sendiri menyelesaikan tugas, menggunakan tool seperti membuka file, menjalankan perintah, sampai mengedit kode. Contoh sehari-hari: menulis kode, mencari info dari file, membuka website, meringkas dokumen, dan mengelola file.
+- **TUI (Terminal User Interface)** - antarmuka interaktif yang berjalan di dalam terminal, kebalikan dari GUI (jendela yang bisa diklik). Saat kamu menjalankan `opencode`, layar tempat kamu mengetik pertanyaan dan melihat jawaban/streaming model itulah TUI-nya.
 - **API Key** - kata sandi khusus agar aplikasi boleh memakai layanan AI tertentu (contoh: Claude dari Anthropic, ChatGPT dari OpenAI, Gemini dari Google).
 - **Environment variable** - "wadah catatan" sistem operasi tempat menyimpan pengaturan (di Windows: System Properties; di macOS: file `~/.zshrc`).
 - **opencode.json** - file pengaturan utama Opencode Agent. Satu file ini mengatur semua: model, MCP, dan LSP (opsional).
